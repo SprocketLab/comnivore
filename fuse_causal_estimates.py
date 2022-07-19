@@ -4,10 +4,10 @@ import os
 from libs.core import load_config
 from libs.model import *
 from libs.model.COmnivore_V import COmnivore_V
+from libs.model.COmnivore_G import COmnivore_G
 from libs.model.LF import LF
 from libs.utils import *
-from libs.utils.wilds_utils import evaluate_wilds
-from libs.utils.logger import log_graph, log, set_log_path
+from libs.utils.logger import log, set_log_path
 from libs.utils.metrics import shd
 
 import numpy as np
@@ -34,12 +34,13 @@ def main(args):
     n_pca_features = dataset_cfg['n_pac_features']
     global tasks
     tasks = dataset_cfg['tasks']
+    fuser = cfg['model']['fuser']
 
 
     #########################################################
     # create log folder
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_path = os.path.join('log', dataset_name, timestamp)
+    log_path = os.path.join('log', dataset_name, fuser, timestamp)
     ensure_path(log_path)
     set_log_path(log_path)
 
@@ -111,21 +112,44 @@ def main(args):
 
     #################################################################################
     # load params for COmnivore
-    COmnivore_params = opt['causal']
-    all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
-    snorkel_ep = COmnivore_params['snorkel_ep']
-    snorkel_lr = COmnivore_params['snorkel_lr']
+    
 
     #################################################################################
 
-    COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
-    for cb in all_negative_balance:
-        log(f"###### {cb} ######")
-        g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
-        train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                     epochs, lr, bs, l2, model=model, G_estimates=g_hats)
+    
+    log(f"FUSE ALGORITHM: {fuser}")
+    
+    if fuser == 'COmnivore_V':
+        COmnivore_params = opt['comnivore_v']
+        all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
+        snorkel_ep = COmnivore_params['snorkel_ep']
+        snorkel_lr = COmnivore_params['snorkel_lr']
+        COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
+        for cb in all_negative_balance:
+            log(f"###### {cb} ######")
+            g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
+            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+                                        epochs, lr, bs, l2, model=model, G_estimates=g_hats)
+    
+    elif fuser == 'COmnivore_G':
+        COmnivore_params = opt['comnivore_g']
+        n_triplets = COmnivore_params['n_triplets']
+        min_iters = COmnivore_params['min_iters']
+        max_iters = COmnivore_params['max_iters']
+        step = COmnivore_params['step']
+        COmnivore = COmnivore_G(G_estimates, n_triplets, min_iters, max_iters, step)
+        g_hats_per_task = COmnivore.fuse_estimates()
+        n_iters = np.array([i for i in range(min_iters, max_iters+step, step)])
+        for i, iter_ in enumerate(n_iters):
+            log(f"##### ITER: {iter_} #####")
+            g_hats = {}
+            for task in g_hats_per_task:
+                g_hats[task] = g_hats_per_task[task][i]
+            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+                epochs, lr, bs, l2, model=model, G_estimates=g_hats)
+        
+        
     return 0
-
 
     #################################################################################
 

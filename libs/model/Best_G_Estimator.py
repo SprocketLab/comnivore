@@ -1,6 +1,6 @@
 import numpy as np
-from utils.metrics import shd, sid
-from utils.graph_modules import modify_single_edge, get_ordered_edge_sets
+from ..utils.metrics import shd, sid
+from ..utils.graph_modules import modify_single_edge, get_ordered_edge_sets
 import networkx as nx
 
 from tqdm import tqdm
