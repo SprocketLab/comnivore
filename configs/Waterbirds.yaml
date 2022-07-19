@@ -1,0 +1,33 @@
+data:
+  num_workers: 8
+  batch_size: 32
+
+  dataset:
+    dataset_name: waterbirds
+    root_path: ./artifacts/extacted_features
+    feature_path: CLIP/2_class_FA_CLEAN
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
+    n_orig_features: 769
+    n_pac_features: 6
+    tasks: ["segment"]
+
+model:
+  active_lfs:
+    notears: ['NoTears Sobolev']
+    classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
+    pycausal: ['fges','rfci','pc-all','fask',]
+  output_model: MLP
+
+opt:
+  epochs: 150
+  lr: 1.e-4
+  l2: 0.1
+  causal:
+    all_negative_balance: [0.1,1.0,0.1]
+    snorkel_ep: 500
+    snorkel_lr: 1.e-3
+
+pipeline:
+  baseline: False
+  indiv_training: False
+  fused_causal: True
