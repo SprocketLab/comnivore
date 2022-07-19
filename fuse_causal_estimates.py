@@ -1,7 +1,5 @@
 import argparse
 import os
-import sys
-
 
 from libs.core import load_config
 from libs.model import *
@@ -12,28 +10,13 @@ from libs.utils.wilds_utils import evaluate_wilds
 from libs.utils.logger import log_graph, log, set_log_path
 from libs.utils.metrics import shd
 
-
-
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from datetime import datetime
 import networkx as nx
-import torch.nn.functional as F
-from torch.autograd import Variable
-import pickle
-import networkx as nx
-from tqdm import tqdm
 import torch
-import matplotlib.pyplot as plt
-#from utils.graph_modules import show_graph, compute_dist
-
-
-
 
 cuda = True if torch.cuda.is_available() else False
 LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
-
-
 
 def main(args):
     # may be we need to implement load from checkpoint function here
