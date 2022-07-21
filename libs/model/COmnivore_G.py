@@ -73,6 +73,7 @@ class COmnivore_G:
             lfs = self.get_task_lfs(task)
             initial_state = 'random'
             g_hats_per_task[task] = []
+            obj_value = []
             for i, iteration in tqdm(enumerate(range(self.min_iters, self.max_iters+self.step, self.step))):
                 if i > 0: 
                     initial_state = np.copy(best_estimated_G)
@@ -80,5 +81,11 @@ class COmnivore_G:
                 search_optimizer.optimize(verbose=False)
                 best_estimated_G = search_optimizer.state.G
                 g_hats_per_task[task].append(best_estimated_G)
+                obj_value.append(search_optimizer.state.cost)
+            # sort ascending based on objective value (cost)
+            obj_value = np.array(obj_value)
+            sorted_idx = np.argsort(obj_value).flatten()
+            g_hats_per_task[task] = np.array(g_hats_per_task[task])
+            g_hats_per_task[task] = g_hats_per_task[task][sorted_idx]
         return g_hats_per_task
                         

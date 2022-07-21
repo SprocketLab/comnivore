@@ -1,15 +1,15 @@
 data:
   num_workers: 8
-  batch_size: 128
+  batch_size: 1280
 
   dataset:
-    dataset_name: waterbirds
+    dataset_name: camelyon17
     root_path: ./artifacts/extacted_features
-    feature_path: CLIP/2_class_FA_CLEAN
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
+    feature_path: CLIP/2_class_FA_LESS
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/camelyon17/CLIP/2_class_FA
     n_orig_features: 769
-    n_pac_features: 6
-    tasks: ["segment"]
+    n_pac_features: 4
+    tasks: ["orig", "gauss_blur"]
 
 model:
   active_lfs:
@@ -25,9 +25,9 @@ opt:
   lr: 5.e-4
   l2: 0.1
   comnivore_v:
-    all_negative_balance: [0.1,1.0,0.1]
-    snorkel_ep: 500
-    snorkel_lr: 1.e-3
+    all_negative_balance: [0.3,1.0,0.1]
+    snorkel_ep: 1000
+    snorkel_lr: 1.e-4
   comnivore_g:
     n_triplets: 7 
     min_iters: 100
@@ -35,6 +35,6 @@ opt:
     step: 100
 
 pipeline:
-  baseline: False
+  baseline: True
   indiv_training: False
   fused_causal: True

@@ -1,15 +1,15 @@
 data:
   num_workers: 8
-  batch_size: 128
+  batch_size: 32
 
   dataset:
-    dataset_name: waterbirds
+    dataset_name: celebA
     root_path: ./artifacts/extacted_features
-    feature_path: CLIP/2_class_FA_CLEAN
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
+    feature_path: CLIP/2_class_FA_LESS
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/celebA/CLIP/2_class_FA_LESS
     n_orig_features: 769
-    n_pac_features: 6
-    tasks: ["segment"]
+    n_pac_features: 4
+    tasks: ["crop_bottom_segment", "crop_segment"]
 
 model:
   active_lfs:
@@ -17,17 +17,17 @@ model:
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: MLP
-  fuser: 'COmnivore_V'
+  fuser: 'COmnivore_G'
   alpha: 2
 
 opt:
   epochs: 150
-  lr: 5.e-4
+  lr: 1.e-5
   l2: 0.1
   comnivore_v:
-    all_negative_balance: [0.1,1.0,0.1]
-    snorkel_ep: 500
-    snorkel_lr: 1.e-3
+    all_negative_balance: [0.3,1.0,0.1]
+    snorkel_ep: 1000
+    snorkel_lr: 1.e-4
   comnivore_g:
     n_triplets: 7 
     min_iters: 100

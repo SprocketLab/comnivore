@@ -81,7 +81,6 @@ class SimulatedAnnealing:
         self.T = T
         self.alpha = alpha
         self.dist_metric = dist_metric
-        print("ANNEALING")
         if len(weights) == 0:
             self.weights = [1 for i in range(len(self.G_lambdas))]
         else:
