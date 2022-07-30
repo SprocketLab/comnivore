@@ -17,7 +17,7 @@ model:
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: MLP
-  fuser: 'COmnivore_V'
+  fuser: 'COmnivore_G'
   alpha: 2
 
 opt:
@@ -35,6 +35,6 @@ opt:
     step: 100
 
 pipeline:
-  baseline: True
+  baseline: False
   indiv_training: False
   fused_causal: True

@@ -2,7 +2,6 @@ from wilds import get_dataset
 import torch
 
 root_dir = "wilds_data"
-# dataset_name = "waterbirds"
 
 class WILDS_utils:
     def __init__(self, dataset_name):

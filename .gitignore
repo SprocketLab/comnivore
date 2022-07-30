@@ -3,3 +3,4 @@ log/
 artifacts
 __pycache__/
 causal-cmd.log
+.ipynb_checkpoints/
