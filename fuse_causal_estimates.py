@@ -1,8 +1,5 @@
 import argparse
-from email.policy import default
 import os
-from this import s
-from tkinter import E
 
 from libs.core import load_config
 from libs.model import *
@@ -11,11 +8,9 @@ from libs.model.COmnivore_G import COmnivore_G
 from libs.model.LF import LF
 from libs.utils import *
 from libs.utils.logger import log, set_log_path
-from libs.utils.metrics import shd
 
 import numpy as np
 from datetime import datetime
-import networkx as nx
 import torch
 
 cuda = True if torch.cuda.is_available() else False
@@ -169,7 +164,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, help='config file path')
+    parser.add_argument('-c', '--config', type=str, help='config file path', required=True)
     parser.add_argument('-lr', '--learning_rate', type=float, help='end model training learning rate')
     parser.add_argument('-l2', '--l2_regularizer', type=float, help='end model l2 regularizer')
     parser.add_argument('-bs', '--batch_size', type=int, help='end model training batch size')

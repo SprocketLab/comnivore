@@ -9,7 +9,13 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["orig"]
+    tasks: ["segment"]
+
+extraction_pipeline:
+  reshape_size: 224
+  extraction_batch_size: 128
+  z_hidden: 5
+  exctractor_model: 'CLIP'
 
 model:
   active_lfs:
