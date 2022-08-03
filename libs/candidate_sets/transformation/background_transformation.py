@@ -3,6 +3,7 @@ from torchvision import models
 import torchvision.transforms as transforms
 from PIL import Image
 import torch
+import cv2
 
 class Segment_Image(object):
     def __init__(self, model='dlab'):
@@ -15,7 +16,10 @@ class Segment_Image(object):
         return "Custom"
     
     def segment(self, img):
-        img = Image.fromarray(np.uint8(img * 255.))
+        if img.shape[0] == 3 or img.shape[0] == 2:
+            img = np.transpose(img, (1,2,0))
+        img = np.uint8(img * 255.)
+        img = Image.fromarray(img)
         trf = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(mean = [0.485, 0.456, 0.406],
                                                     std = [0.229, 0.224, 0.225])])
@@ -25,14 +29,20 @@ class Segment_Image(object):
         return om
 
     def segment_image(self, img): 
+        if img.shape[0] == 3 or img.shape[0] == 2:
+            img = np.transpose(img, (1,2,0))
         mask = self.segment(img)
         mask = mask
         mask[mask > 0] = 1
-        return np.dstack((mask,mask,mask)) * img
+        return (np.dstack((mask,mask,mask)) * img).astype(dtype='float64')
 
-    def __call__(self, image, label=None):
+    def __call__(self, image):
         image = np.asarray(image)
         image = self.segment_image(image)
+        # im = Image.fromarray(image)
+        # im.save("test_segment.png")
+        rnd = np.random.randint(0,128)
+        cv2.imwrite(f"test_segment/test_segment_{rnd}.png", image)
         return image
 
 
@@ -62,7 +72,7 @@ class Circular_Filter(object):
         filtered_image = mask * image
         return filtered_image
     
-    def __call__(self, image, label=None):
+    def __call__(self, image):
         image = np.asarray(image)
         image = self.circular_filter(image)
         return image

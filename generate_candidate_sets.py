@@ -11,6 +11,8 @@ from datetime import datetime
 
 import numpy as np
 
+from libs.datasets import DATASETS, WILDS_DATASETS, DOMAINBED_DATASETS
+
 def get_model_dict():
     return {
         'CLIP': Extractor_CLIP,
@@ -18,9 +20,13 @@ def get_model_dict():
         'CNN': Extractor_CNN,
     }
     
-def extract_features(extractor_model, dataloader):
+def extract_features(extractor_model, dataloader, dataset_name):
+    print(dataset_name)
     phi = Phi(extractor_model)
-    features = phi.get_z_features(dataloader)
+    if dataset_name in DOMAINBED_DATASETS:
+        features = phi.get_z_features(dataloader, domainbed=True)
+    else:
+        features = phi.get_z_features(dataloader, domainbed=False)
     return features
 
 def store_features(store_path, features, mode, type_):
@@ -68,32 +74,36 @@ def main(args):
     test_loader = candidate_set.get_test_loader()
     val_loader = candidate_set.get_val_loader()
     
-    train_metadata = candidate_set.get_train_metadata()
-    test_metadata = candidate_set.get_test_metadata()
-    val_metadata = candidate_set.get_val_metadata()
-    
-    store_features(store_dir, train_metadata, "train", "metadata")
-    store_features(store_dir, test_metadata, "test", "metadata")
-    store_features(store_dir, val_metadata, "val", "metadata")
+    if dataset_name in WILDS_DATASETS:
+        train_metadata = candidate_set.get_train_metadata()
+        test_metadata = candidate_set.get_test_metadata()
+        val_metadata = candidate_set.get_val_metadata()
+        
+        store_features(store_dir, train_metadata, "train", "metadata")
+        store_features(store_dir, test_metadata, "test", "metadata")
+        store_features(store_dir, val_metadata, "val", "metadata")
     
     model = extraction_config['extractor_model']
     extractor_model = get_model_dict()[model](z_hidden)
+    
     for i, train_loader in enumerate(train_loaders):
         env = environments[i]
         log(f"Extracting {env} training features....")
-        features_full, features_pca, feature_mapping, components = extract_features(extractor_model, train_loader)
+        features_full, features_pca, feature_mapping, components = extract_features(extractor_model, train_loader, dataset_name)
         store_mapping(store_dir, z_hidden, feature_mapping, environments[i])
         store_features(store_dir, features_full, "train", f"{env}_full")
         store_features(store_dir, features_pca, "train", f"{env}_pca")
         store_features(store_dir, components, "train", f"{env}_components")
     
-    log("Extracting test features...")
-    test_features_full, tes_features_pca, _, _ = extract_features(extractor_model, test_loader)
+    if test_loader is not None:
+        log("Extracting test features...")
+        test_features_full, tes_features_pca, _, _ = extract_features(extractor_model, test_loader, dataset_name)
+        store_features(store_dir, test_features_full, "test", "orig_full")
+        store_features(store_dir, tes_features_pca, "test", "orig_pca")
+   
     log("Extracting val features...")
-    val_features_full, val_features_pca, _, _ = extract_features(extractor_model, val_loader)
+    val_features_full, val_features_pca, _, _ = extract_features(extractor_model, val_loader, dataset_name)
     
-    store_features(store_dir, test_features_full, "test", "orig_full")
-    store_features(store_dir, tes_features_pca, "test", "orig_pca")
     store_features(store_dir, val_features_full, "val", "orig_full")
     store_features(store_dir, val_features_pca, "val", "orig_pca")
     

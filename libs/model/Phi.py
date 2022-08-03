@@ -294,18 +294,30 @@ class Phi:
         #extractor should be a trained Extractor object
         self.extractor = extractor
 
-    def get_z_features(self, dataloader):
+    def get_z_features(self, dataloader, domainbed=False):
         self.extractor.model.eval()
         with torch.no_grad():
             for i, chunk in tqdm(enumerate(dataloader)):
-                data = chunk[0]
-                target = chunk[1]
-                data = data.to(device)
-                target = target.to(device)
-                z = self.extractor.model.extract_feature(data)
-                data_matrix = torch.hstack((z, target.view(-1,1)))
-                if i == 0:
-                    features = np.zeros((1, data_matrix.shape[1]))
+                if domainbed:
+                    for j, domain_batch in enumerate(chunk):
+                        data = domain_batch[0]
+                        target = domain_batch[1]
+                        data = data.to(device)
+                        target = target.to(device)
+                        z = self.extractor.model.extract_feature(data)
+                        data_matrix = torch.hstack((z, target.view(-1,1)))
+                        if i == 0 and j == 0:
+                            features = np.zeros((1, data_matrix.shape[1]))
+                        features = np.vstack((features, data_matrix.detach().cpu().numpy()))
+                else:
+                    data = chunk[0]
+                    target = chunk[1]
+                    data = data.to(device)
+                    target = target.to(device)
+                    z = self.extractor.model.extract_feature(data)
+                    data_matrix = torch.hstack((z, target.view(-1,1)))
+                    if i == 0:
+                        features = np.zeros((1, data_matrix.shape[1]))
                 features = np.vstack((features, data_matrix.detach().cpu().numpy()))
             features = np.delete(features, 0, 0)
             if self.extractor.post_processor:

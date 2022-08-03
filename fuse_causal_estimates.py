@@ -87,7 +87,6 @@ def main(args):
         bs = args.batch_size
     else:
         bs = cfg['data']['batch_size']
-        print("BS 1", bs)
     if 'alpha' in args and not isinstance(args.alpha,type(None)):
         alpha = args.alpha
     else:

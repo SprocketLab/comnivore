@@ -1,17 +1,11 @@
-import os
-import json
-import random
+WILDS_DATASETS = [
+    "waterbirds",
+    "celebA",
+    "camelyon17"
+]
 
-import torch
-from torch.utils.data import Dataset,DataLoader
-import numpy as np
+DOMAINBED_DATASETS = [
+    "OfficeHome"
+]
 
-#class CausalDataset(Dataset):
-
-
-
-
-
-
-
-#def make_data_loader()
+DATASETS = WILDS_DATASETS + DOMAINBED_DATASETS
