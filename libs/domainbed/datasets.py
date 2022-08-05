@@ -9,6 +9,8 @@ from torch.utils.data import TensorDataset, Subset
 from torchvision.datasets import MNIST, ImageFolder
 from torchvision.transforms.functional import rotate
 
+from torch.utils.data import Dataset
+
 from wilds.datasets.camelyon17_dataset import Camelyon17Dataset
 from wilds.datasets.fmow_dataset import FMoWDataset
 
@@ -83,7 +85,7 @@ class Debug224(Debug):
 
 class MultipleEnvironmentMNIST(MultipleDomainDataset):
     def __init__(self, root, environments, dataset_transform, input_shape,
-                 num_classes):
+                 num_classes, extra_transform=None):
         super().__init__()
         if root is None:
             raise ValueError('Data directory not specified!')
@@ -111,14 +113,29 @@ class MultipleEnvironmentMNIST(MultipleDomainDataset):
 
         self.input_shape = input_shape
         self.num_classes = num_classes
+        self.extra_transform = extra_transform
 
+class MyDataset(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        x, y = self.subset[index]
+        if self.transform:
+            x = self.transform(x)
+        return x, y
+        
+    def __len__(self):
+        return len(self.subset)
 
 class ColoredMNIST(MultipleEnvironmentMNIST):
     ENVIRONMENTS = ['+90%', '+80%', '-90%']
 
-    def __init__(self, root, test_envs, hparams):
+    def __init__(self, root, test_envs, hparams, extra_transform=None):
+        self.extra_transform = extra_transform
         super(ColoredMNIST, self).__init__(root, [0.1, 0.2, 0.9],
-                                         self.color_dataset, (2, 28, 28,), 2)
+                                         self.color_dataset, (2, 28, 28,), 2, extra_transform)
 
         self.input_shape = (2, 28, 28,)
         self.num_classes = 2
@@ -143,8 +160,11 @@ class ColoredMNIST(MultipleEnvironmentMNIST):
 
         x = images.float().div_(255.0)
         y = labels.view(-1).long()
-
-        return TensorDataset(x, y)
+        
+        if self.extra_transform is not None:
+            return MyDataset(TensorDataset(x, y), self.extra_transform)
+        else:
+            return TensorDataset(x, y)
 
     def torch_bernoulli_(self, p, size):
         return (torch.rand(size) < p).float()

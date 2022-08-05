@@ -3,17 +3,17 @@ data:
   batch_size: 128
 
   dataset:
-    dataset_name: waterbirds
+    dataset_name: ColoredMNIST
     root_path: ./artifacts/extracted_features
-    feature_path: CLIP/2_class_FA_CLEAN
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
+    feature_path: CLIP/
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/ColoredMNIST/CLIP/
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["segment"]
+    tasks: ["orig", "bw", "cmap"]
 
 extraction_pipeline:
   reshape_size: 224
-  extraction_batch_size: 128
+  extraction_batch_size: 2560
   z_hidden: 5
   extractor_model: 'CLIP'
 
@@ -22,16 +22,16 @@ model:
     notears: ['NoTears Sobolev']
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
-  output_model: CLIPMLP
+  output_model: MLP
   fuser: 'COmnivore_V'
   alpha: 2
 
 opt:
-  epochs: 200
+  epochs: 150
   lr: 5.e-4
   l2: 0.1
   comnivore_v:
-    all_negative_balance: [0.3,1.0,0.1]
+    all_negative_balance: [0.1,1.0,0.1]
     snorkel_ep: 500
     snorkel_lr: 1.e-3
   comnivore_g:

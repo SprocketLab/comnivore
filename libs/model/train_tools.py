@@ -136,7 +136,6 @@ def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, 
         return 0
 
     baseline = CausalClassifier()
-    print('BS 2', bs)
     baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs, dataset_name=dataset_name, \
                             verbose=False, valdata=valdata, metadata_val=metadata_val, l2=l2, generator=generator, \
                             alpha=alpha)

@@ -5,7 +5,9 @@ WILDS_DATASETS = [
 ]
 
 DOMAINBED_DATASETS = [
-    "OfficeHome"
+    "OfficeHome",
+    "ColoredMNIST",
+    "RotatedMNIST",
 ]
 
 DATASETS = WILDS_DATASETS + DOMAINBED_DATASETS

@@ -4,9 +4,9 @@ data:
 
   dataset:
     dataset_name: OfficeHome
-    root_path: ./artifacts/extacted_features
+    root_path: ./artifacts/extracted_features
     feature_path: CLIP/
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/OfficeHome/CLIP/
     n_orig_features: 769
     n_pac_features: 6
     tasks: ["orig", "segment", "segment_2"]

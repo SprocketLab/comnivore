@@ -30,6 +30,10 @@ class OfficeHome_Candidate_Set(DomainBed_Candidate_Set):
         val_loader = super().get_val_loader(batch_size)
         return val_loader
     
+    def get_test_dataloader(self, batch_size):
+        test_loader = super().get_test_loader(batch_size)
+        return test_loader
+    
     def get_train_loader_orig(self):
         trainloader_orig = self.get_train_dataloader(self.batch_size)
         return trainloader_orig
