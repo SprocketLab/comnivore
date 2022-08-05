@@ -1,8 +1,7 @@
 import os
 from libs.model import *
 from libs.utils import *
-from libs.utils.wilds_utils import WILDS_utils
-from libs.utils.logger import log_graph, log, set_log_path
+from libs.utils.logger import save_graph, log, set_log_path
 from libs.utils.metrics import shd
 
 import numpy as np
@@ -28,7 +27,7 @@ def get_samples_dict(load_path,n_orig_features,n_pca_features,tasks):
             samples_dict[task]['pca_feature_mapping'] = pca_mapping
     return samples_dict
 
-def run_notears_lfs(samples_dict,tasks,lf_func, lf_name, use_cpdag=False, log_graph = False):
+def run_notears_lfs(samples_dict,tasks,lf_func, lf_name, use_cpdag=False, log_graph = True):
     G_estimates = {}
     for task in tqdm(tasks):
         pca_features = samples_dict[task]['pca_features']
@@ -38,10 +37,10 @@ def run_notears_lfs(samples_dict,tasks,lf_func, lf_name, use_cpdag=False, log_gr
         else:
             G_estimates[task] = cpdag
         if log_graph:
-            log_graph(G_estimates[task], title=f"{task} LF {lf_name}")
+            save_graph(G_estimates[task], title=f"{task} LF {lf_name}")
     return G_estimates
 
-def run_classic_lfs(samples_dict,tasks, lf_func, lf_name, transpose=True, pycausal=False, log_graph = False):
+def run_classic_lfs(samples_dict,tasks, lf_func, lf_name, transpose=True, pycausal=False, log_graph = True):
     G_estimates = {}
     for task in tqdm(tasks):
         pca_features = samples_dict[task]['pca_features']
@@ -54,7 +53,7 @@ def run_classic_lfs(samples_dict,tasks, lf_func, lf_name, transpose=True, pycaus
         else:
             G_estimates[task] = dag.T
         if log_graph:
-            log_graph(G_estimates[task], title=f"{task} LF {lf_name}")
+            save_graph(G_estimates[task], title=f"{task} LF {lf_name}")
     return G_estimates
 
 def translate_pca_to_full(feature_map, pca_nodes):
@@ -128,7 +127,7 @@ def scale_data(data):
     return scaled_data
 
 def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test, generator, dataset_name, \
-                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=MLP, G_estimates=None, scale=False, alpha=2):
+                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=MLP, G_estimates=None, scale=False, alpha=2, evaluate_func=None):
     baseline_accs = {}
     traindata, valdata, testdata = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates, scale)
 
@@ -138,15 +137,15 @@ def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, 
     baseline = CausalClassifier()
     baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs, dataset_name=dataset_name, \
                             verbose=False, valdata=valdata, metadata_val=metadata_val, l2=l2, generator=generator, \
-                            alpha=alpha)
+                            alpha=alpha, evaluate_func=evaluate_func)
 
-    wilds_utils = WILDS_utils(dataset_name)
+    # wilds_utils = WILDS_utils(dataset_name)
     outputs_val, labels_val, _ = baseline.evaluate(baseline.best_chkpt, valdata)
-    results_obj_val, results_str_val = wilds_utils.evaluate_wilds(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
+    results_obj_val, results_str_val = evaluate_func(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
     log(f"Val \n {results_str_val}")
 
     outputs_test, labels_test, _ = baseline.evaluate(baseline.model, testdata)
-    results_obj_test, results_str_test = wilds_utils.evaluate_wilds(torch.Tensor(outputs_test), torch.Tensor(labels_test), torch.Tensor(metadata_test))
+    results_obj_test, results_str_test = evaluate_func(torch.Tensor(outputs_test), torch.Tensor(labels_test), torch.Tensor(metadata_test))
 
     log(f"Test \n {results_str_test}")
     baseline_accs['val'] = {k:v for k,v in results_obj_val.items()}

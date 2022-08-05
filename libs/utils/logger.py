@@ -18,5 +18,5 @@ def log(obj, filename='log.txt'):
         with open(os.path.join(_log_path, filename), 'a') as f:
             print(obj, file=f)
 
-def log_graph(graph, title):
+def save_graph(graph, title):
     show_graph(graph, size=(2,2),  title=title, show=False, figname=os.path.join(_log_path, f"{title}.png"), save=True)

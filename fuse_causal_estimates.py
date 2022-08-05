@@ -13,6 +13,10 @@ import numpy as np
 from datetime import datetime
 import torch
 
+from libs.utils.wilds_utils import WILDS_utils
+from libs.utils.domainbed_utils import DomainBed_utils
+from libs.datasets import WILDS_DATASETS, DOMAINBED_DATASETS
+
 cuda = True if torch.cuda.is_available() else False
 LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
@@ -100,17 +104,23 @@ def main(args):
     # load params for pipline
     pipline = cfg['pipeline']
     
+    evaluate_func = None
+    if dataset_name in WILDS_DATASETS:
+        evaluate_func = WILDS_utils(dataset_name).evaluate_wilds
+    elif dataset_name in DOMAINBED_DATASETS:
+        evaluate_func = DomainBed_utils(dataset_name).evaluate_domainbed
+        
     if pipline['baseline']:
         log("Training baseline....")
         baseline_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                                     dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha)
+                                                     dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func)
 
     if pipline['indiv_training']:
         log("Training using individual LF estimates...")
         for lf in G_estimates:
             log(lf)
             train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                         dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha)
+                                         dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func)
 
     log("Training with fused causal estimates...")
 
@@ -137,7 +147,7 @@ def main(args):
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
             train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha)
+                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
     
     elif fuser == 'COmnivore_G':
         COmnivore_params = opt['comnivore_g']
@@ -154,7 +164,7 @@ def main(args):
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
             train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha)
+                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
         
         
     return 0

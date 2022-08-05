@@ -163,8 +163,8 @@ class CausalClassifier:
         regular_loss = regular_loss_f(y_pred, y_true)
         return regular_loss
 
-    def train(self, model, trainloader, dataset_name, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32):
-        wilds_utils = WILDS_utils(dataset_name)
+    def train(self, model, trainloader, dataset_name, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32, evaluate_func=None):
+        # wilds_utils = WILDS_utils(dataset_name)
         optimizer = SGD(model.parameters(), lr, momentum=0.9)
         if cuda:
             model = model.cuda()
@@ -206,7 +206,8 @@ class CausalClassifier:
                 optimizer.step()
             if valdata is not None:
                 outputs_val, labels_val, _ = self.evaluate(model, valdata, batch_size)
-                results_obj_val, results_str_val = wilds_utils.evaluate_wilds(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
+                results_obj_val, results_str_val = evaluate_func(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
+                # wilds_utils.evaluate_wilds(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
                 val_perf.append(results_obj_val)
                 if results_obj_val['acc_wg'] > best_val_perf:
                     best_val_perf = results_obj_val['acc_wg']
@@ -244,7 +245,8 @@ class CausalClassifier:
             self.model = None
             return None
         
-    def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, dataset_name='waterbirds', verbose=False, l2=0.1, valdata=None, metadata_val=None, generator=None, alpha=2, ):
+    def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, dataset_name='waterbirds', \
+        verbose=False, l2=0.1, valdata=None, metadata_val=None, generator=None, alpha=2, evaluate_func=None):
         self.nodes_to_train = [i for i in range(train_data.shape[1]-1)]
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train,generator=generator)
         self.batch_size = batch_size
@@ -254,7 +256,8 @@ class CausalClassifier:
         # int(((dataset.shape[1]-1)*1/2)+np.unique(labels).shape[0])
 
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0], n_hidden=n_hidden)
-        self.model, val_perf, self.best_chkpt = self.train(model, trainloader, dataset_name, epochs=epochs, lr=lr, verbose=verbose, l2_penalty=l2, valdata=valdata, metadata_val=metadata_val, batch_size=batch_size)
+        self.model, val_perf, self.best_chkpt = self.train(model, trainloader, dataset_name, epochs=epochs, lr=lr, \
+            verbose=verbose, l2_penalty=l2, valdata=valdata, metadata_val=metadata_val, batch_size=batch_size, evaluate_func=evaluate_func)
         return self.model, val_perf, self.best_chkpt
 
     def evaluate(self, model, test_data, batch_size=None, nodes_to_train=None):
