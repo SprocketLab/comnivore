@@ -28,7 +28,7 @@ model:
 
 opt:
   epochs: 100
-  lr: 5.e-3
+  lr: 1.e-3
   l2: 0.1
   comnivore_v:
     all_negative_balance: [0.1,1.0,0.1]
