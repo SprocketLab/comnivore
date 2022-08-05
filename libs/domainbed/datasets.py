@@ -119,6 +119,7 @@ class MyDataset(Dataset):
     def __init__(self, subset, transform=None):
         self.subset = subset
         self.transform = transform
+        self.tensors = self.subset.tensors
         
     def __getitem__(self, index):
         x, y = self.subset[index]
@@ -128,6 +129,9 @@ class MyDataset(Dataset):
         
     def __len__(self):
         return len(self.subset)
+    
+    def __tensors__(self):
+        return self.subset.tensors
 
 class ColoredMNIST(MultipleEnvironmentMNIST):
     ENVIRONMENTS = ['+90%', '+80%', '-90%']

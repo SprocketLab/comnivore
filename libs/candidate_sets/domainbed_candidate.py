@@ -17,18 +17,22 @@ class DomainBed_Candidate_Set:
     def __init__(self, dataset):
         self.dataset = dataset
         self.num_envs = len(dataset)
-        self.in_splits, self.out_splits = self.get_splits()
+        self.keys = list(range(len(dataset)))
+        np.random.RandomState(split_seed).shuffle(self.keys)
+        self.in_splits, self.out_splits = self.get_splits(self.keys)
     
     def set_dataset(self, dataset):
         self.dataset = dataset
+        self.in_splits, self.out_splits = self.get_splits(self.keys)
     
-    def get_splits(self):
+    def get_splits(self, keys=None):
         in_splits = []
         out_splits = []
         for env_i, env in enumerate(self.dataset):
             out, in_ = misc.split_dataset(env,
                                             int(len(env) * holdout_fraction),
-                                            misc.seed_hash(split_seed, env_i))
+                                            misc.seed_hash(split_seed, env_i),
+                                            keys=keys)
             in_splits.append((in_, env_i))
             out_splits.append((out, env_i))
         return in_splits, out_splits

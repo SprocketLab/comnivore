@@ -120,15 +120,16 @@ class _SplitDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.keys)
 
-def split_dataset(dataset, n, seed=0):
+def split_dataset(dataset, n, seed=0, keys=None):
     """
     Return a pair of datasets corresponding to a random split of the given
     dataset, with n datapoints in the first dataset and the rest in the last,
     using the given random seed
     """
     assert(n <= len(dataset))
-    keys = list(range(len(dataset)))
-    np.random.RandomState(seed).shuffle(keys)
+    if keys is None:
+        keys = list(range(len(dataset)))
+        np.random.RandomState(seed).shuffle(keys)
     keys_1 = keys[:n]
     keys_2 = keys[n:]
     return _SplitDataset(dataset, keys_1), _SplitDataset(dataset, keys_2)
