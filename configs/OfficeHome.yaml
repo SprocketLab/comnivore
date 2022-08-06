@@ -22,7 +22,7 @@ model:
     notears: ['NoTears Sobolev']
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
-  output_model: MLP
+  output_model: CLIPMLP
   fuser: 'COmnivore_V'
   alpha: 2
 

@@ -27,8 +27,12 @@ class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
         return train_loader
     
     def get_val_dataloader(self, batch_size):
-        val_loader = super().get_val_loader(batch_size)
+        val_loader = super().get_mnist_val_loader(batch_size)
         return val_loader
+    
+    def get_test_dataloader(self, batch_size):
+        test_loader = super().get_mnist_test_loader(batch_size)
+        return test_loader
     
     def get_train_loader_orig(self):
         trainloader_orig = self.get_train_dataloader(self.batch_size)
@@ -61,7 +65,7 @@ class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
         return trainloader_bw
     
     def get_test_loader(self):
-        test_loader = super().get_test_loader(self.batch_size)
+        test_loader = super().get_mnist_test_loader(self.batch_size)
         return test_loader
 
     def get_val_loader(self):

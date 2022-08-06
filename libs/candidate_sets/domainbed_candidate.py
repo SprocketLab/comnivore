@@ -1,7 +1,6 @@
 from libs.candidate_sets.utils.domainbed_const import HOLDOUT_FRACTION
 from .utils import domainbed_const
 from libs.domainbed.lib import misc
-# from libs.domainbed.lib.fast_data_loader import InfiniteDataLoader, FastDataLoader
 import numpy as np
 from torchvision import transforms
 from torch.utils.data import DataLoader, TensorDataset
@@ -58,7 +57,10 @@ class DomainBed_Candidate_Set:
         train_metadata = []
         for split in self.in_splits:
             env_i = split[1]
-            train_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+            if isinstance(split[0].underlying_dataset, type(TensorDataset)):
+                train_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+            else:
+                train_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
         return np.vstack(train_metadata)
 
     def get_val_metadata(self):
@@ -66,60 +68,69 @@ class DomainBed_Candidate_Set:
         val_metadata = []
         for split in self.out_splits:
             env_i = split[1]
-            val_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+            if isinstance(split[0].underlying_dataset, type(TensorDataset)):
+                val_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+            else:
+                val_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
         return np.vstack(val_metadata)
     
     def get_test_metadata(self):
         test_metadata = []
         for split in self.in_splits:
             env_i = split[1]
-            test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+            if isinstance(split[0].underlying_dataset, type(TensorDataset)):
+                test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+            else:
+                test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
         for split in self.out_splits:
             env_i = split[1]
-            test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+            if isinstance(split[0].underlying_dataset, type(TensorDataset)):
+                test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+            else:
+                test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
         return np.vstack(test_metadata)
     
-    def get_train_loader(self, batch_size, extra_transform=None):
-        in_splits, _ = self.get_splits(test_envs)
-        for i, (env, _) in enumerate(in_splits):
-            if i == 0:
-                transform_list = vars(env.underlying_dataset.transforms.transform)['transforms']
-                if extra_transform is not None:
-                    extra_transform_list = vars(extra_transform)['transforms']
-                    for item in extra_transform_list:
-                        transform_list.insert(1, item)
-                env.underlying_dataset.transforms.transform = transforms.Compose(transform_list)
-        train_loaders = [
-            # InfiniteDataLoader(
-            # dataset=env,
-            # weights=env_weights,
-            # batch_size=batch_size,
-            # num_workers=0)
-            DataLoader(
-                dataset=env,
-                batch_size=batch_size,
-                shuffle=False
-            )
-            for i, (env, _) in enumerate(in_splits)
-            if i not in test_envs]
-        return zip(*train_loaders)
-    
+    def get_train_loader(self, batch_size):
+        _train_envs = [i for i in range(self.num_envs) if i not in test_envs]
+        train_datasets = [self.in_splits[i][0].underlying_dataset for i in _train_envs]
+        train_datasets = torch.utils.data.ConcatDataset(train_datasets)
+        train_dataloader = DataLoader(
+            dataset=train_datasets,
+            batch_size=batch_size,)
+        return train_dataloader
+
     def get_val_loader(self, batch_size):
+        _train_envs = [i for i in range(self.num_envs) if i not in test_envs]
+        val_datasets = [self.out_splits[i][0].underlying_dataset for i in _train_envs]
+        val_datasets = torch.utils.data.ConcatDataset(val_datasets)
+        valid_dataloader = DataLoader(
+            dataset=val_datasets,
+            batch_size=batch_size,)
+        return valid_dataloader
+    
+    def get_test_loader(self, batch_size):
+        test_datasets = [self.in_splits[i][0].underlying_dataset for i in test_envs] + \
+            [self.out_splits[i][0].underlying_dataset for i in test_envs]
+        test_datasets = torch.utils.data.ConcatDataset(test_datasets)
+        test_dataloader = DataLoader(
+            dataset = test_datasets,
+            batch_size=batch_size,
+        )
+        return test_dataloader
+
+    
+    def get_mnist_val_loader(self, batch_size):
         _train_envs = [i for i in range(self.num_envs) if i not in test_envs]
         clf_valid_features, clf_valid_labels = zip(*[self.out_splits[i][0].underlying_dataset.tensors for i in _train_envs])
         clf_valid_features, clf_valid_labels = torch.cat(clf_valid_features), torch.cat(clf_valid_labels)
         if clf_valid_features.shape[1] < 3:
             clf_valid_features = self.add_dataset_dimension(clf_valid_features)
-        # use a fixed shuffle of the data across epochs and also trials
-        indices = torch.LongTensor(
-            np.random.RandomState(seed=split_seed).permutation(clf_valid_features.size()[0]))
-        clf_valid_features, clf_valid_labels = clf_valid_features[indices], clf_valid_labels[indices]
         clf_valid_dataloader = DataLoader(
             dataset=TensorDataset(clf_valid_features, clf_valid_labels),
             batch_size=batch_size,)
         return clf_valid_dataloader
     
-    def get_test_loader(self, batch_size):
+    def get_mnist_test_loader(self, batch_size):
         test_splits = [self.in_splits[i][0].underlying_dataset.tensors for i in test_envs] + \
             [self.out_splits[i][0].underlying_dataset.tensors for i in test_envs]
         clf_test_features, clf_test_labels = zip(*test_splits)
