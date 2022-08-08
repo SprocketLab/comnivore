@@ -127,7 +127,7 @@ def scale_data(data):
     return scaled_data
 
 def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test, generator, dataset_name, \
-                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=MLP, G_estimates=None, scale=False, alpha=2, evaluate_func=None):
+                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=MLP, G_estimates=None, scale=False, alpha=2, evaluate_func=None, log_freq=None):
     baseline_accs = {}
     traindata, valdata, testdata = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates, scale)
 
@@ -137,7 +137,7 @@ def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, 
     baseline = CausalClassifier()
     baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs, dataset_name=dataset_name, \
                             verbose=False, valdata=valdata, metadata_val=metadata_val, l2=l2, generator=generator, \
-                            alpha=alpha, evaluate_func=evaluate_func)
+                            alpha=alpha, evaluate_func=evaluate_func,log_freq=log_freq)
 
     # wilds_utils = WILDS_utils(dataset_name)
     outputs_val, labels_val, _ = baseline.evaluate(baseline.best_chkpt, valdata)
@@ -154,3 +154,14 @@ def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, 
 
 def log_config(lr, l2, bs, alpha):
     log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | alpha = {alpha}")
+
+def get_best_model_acc(eval_accs):
+    
+    # assert 'val' in eval_accs and 'test' in eval_accs
+    best_val_acc = float('-inf')
+    best_key = None
+    for key in eval_accs:
+        if eval_accs[key]['val']['acc_wg'] > best_val_acc:
+            best_val_acc = eval_accs[key]['val']['acc_wg']
+            best_key = key
+    return eval_accs[key]['val']['acc_wg'], eval_accs[key]['test']['acc_wg']

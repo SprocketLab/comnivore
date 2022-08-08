@@ -109,18 +109,22 @@ def main(args):
         evaluate_func = WILDS_utils(dataset_name).evaluate_wilds
     elif dataset_name in DOMAINBED_DATASETS:
         evaluate_func = DomainBed_utils(dataset_name).evaluate_domainbed
-        
+    
+    baseline_accs = None
+    utils_cfg = cfg['utils']
+    log_freq = utils_cfg['log_freq']
     if pipline['baseline']:
         log("Training baseline....")
         baseline_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                                     dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func)
+                                                     dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, log_freq=log_freq)
 
     if pipline['indiv_training']:
         log("Training using individual LF estimates...")
         for lf in G_estimates:
             log(lf)
             train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                         dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func)
+                                         dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func, \
+                                             log_freq=log_freq)
 
     log("Training with fused causal estimates...")
 
@@ -129,7 +133,7 @@ def main(args):
     #################################################################################
 
     log(f"FUSE ALGORITHM: {fuser}")
-    
+    eval_accs_all = {}
     if fuser == 'COmnivore_V':
         COmnivore_params = opt['comnivore_v']
         all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
@@ -143,11 +147,14 @@ def main(args):
             snorkel_ep = COmnivore_params['snorkel_ep']
         log(f"SNORKEL PARAMS: lr {snorkel_lr} | ep {snorkel_ep}")
         COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
+        
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
+            eval_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
+                                            log_freq=log_freq)
+            eval_accs_all[cb] = eval_accs
     
     elif fuser == 'COmnivore_G':
         COmnivore_params = opt['comnivore_g']
@@ -163,11 +170,13 @@ def main(args):
             g_hats = {}
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
+            eval_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
+                                log_freq=log_freq)
+            eval_accs_all[iter_] = eval_accs
+    best_val_acc, best_test = get_best_model_acc(eval_accs_all)
         
-        
-    return 0
+    return baseline_accs, best_val_acc, best_test
 
     #################################################################################
 
@@ -183,5 +192,9 @@ if __name__ == '__main__':
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
     args = parser.parse_args()
     # print(args)
-    main(args)
+    baseline_accs, best_val_acc, best_test = main(args)
+    if baseline_accs is not None:
+        print("Baseline test accuracy: {:.3f}".format(baseline_accs['test']['acc_wg']))
+    print("Best validation set accuracy: {:.3f}".format(best_val_acc))
+    print("Best model test accuracy: {:.3f}".format(best_test))
     os._exit(os.EX_OK)

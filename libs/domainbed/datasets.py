@@ -109,29 +109,32 @@ class MultipleEnvironmentMNIST(MultipleDomainDataset):
         for i in range(len(environments)):
             images = original_images[i::len(environments)]
             labels = original_labels[i::len(environments)]
-            self.datasets.append(dataset_transform(images, labels, environments[i]))
+            transformed_dataset = dataset_transform(images, labels, environments[i])
+            if extra_transform is None:
+                self.datasets.append(transformed_dataset)
+            else:
+                self.datasets.append(CustomTensorDataset(transformed_dataset.tensors, extra_transform))
 
         self.input_shape = input_shape
         self.num_classes = num_classes
-        self.extra_transform = extra_transform
 
-class MyDataset(Dataset):
-    def __init__(self, subset, transform=None):
-        self.subset = subset
+class CustomTensorDataset(Dataset):
+    """TensorDataset with support of transforms.
+    """
+    def __init__(self, tensors, transform=None):
+        assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
+        self.tensors = tensors
         self.transform = transform
-        self.tensors = self.subset.tensors
-        
+
     def __getitem__(self, index):
-        x, y = self.subset[index]
+        x = self.tensors[0][index]
         if self.transform:
             x = self.transform(x)
+        y = self.tensors[1][index]
         return x, y
-        
+
     def __len__(self):
-        return len(self.subset)
-    
-    def __tensors__(self):
-        return self.subset.tensors
+        return self.tensors[0].size(0)
 
 class ColoredMNIST(MultipleEnvironmentMNIST):
     ENVIRONMENTS = ['+90%', '+80%', '-90%']
@@ -159,16 +162,14 @@ class ColoredMNIST(MultipleEnvironmentMNIST):
                                                        len(labels)))
         images = torch.stack([images, images], dim=1)
         # Apply the color to the image by zeroing out the other color channel
-        images[torch.tensor(range(len(images))), (
-            1 - colors).long(), :, :] *= 0
+        if self.extra_transform is None:
+            images[torch.tensor(range(len(images))), (
+                1 - colors).long(), :, :] *= 0
 
         x = images.float().div_(255.0)
         y = labels.view(-1).long()
         
-        if self.extra_transform is not None:
-            return MyDataset(TensorDataset(x, y), self.extra_transform)
-        else:
-            return TensorDataset(x, y)
+        return TensorDataset(x, y)
 
     def torch_bernoulli_(self, p, size):
         return (torch.rand(size) < p).float()
@@ -212,9 +213,7 @@ class MultipleEnvironmentImageFolder(MultipleDomainDataset):
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        
-        # print(transform.transforms)
-        # exit()
+    
 
         augment_transform = transforms.Compose([
             # transforms.Resize((224,224)),
@@ -249,9 +248,9 @@ class MultipleEnvironmentImageFolder(MultipleDomainDataset):
 class VLCS(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 300
     ENVIRONMENTS = ["C", "L", "S", "V"]
-    def __init__(self, root, test_envs, hparams):
+    def __init__(self, root, test_envs, hparams, extra_transforms=None):
         self.dir = os.path.join(root, "VLCS/")
-        super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams)
+        super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams, extra_transforms)
 
 class PACS(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 300
@@ -270,7 +269,7 @@ class DomainNet(MultipleEnvironmentImageFolder):
 class OfficeHome(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 300
     ENVIRONMENTS = ["A", "C", "P", "R"]
-    def __init__(self, root, test_envs, hparams,extra_transforms=None):
+    def __init__(self, root, test_envs, hparams, extra_transforms=None):
         self.dir = os.path.join(root, "office_home/")
         super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams, extra_transforms)
 

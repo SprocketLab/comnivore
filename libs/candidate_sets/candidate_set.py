@@ -1,5 +1,5 @@
 from .waterbirds_candidate import Waterbirds_Candidate_Set
-from .officehome_candidate import OfficeHome_Candidate_Set
+from .multiclass_domainbed_candidate import MultiClassDomainBed
 from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
 from libs.model import *
 from tqdm import tqdm
@@ -15,9 +15,11 @@ class Candidate_Set:
     def get_candidate_set(self, dataset_name):
         if dataset_name == 'waterbirds':
             return Waterbirds_Candidate_Set(self.reshape_size, self.batch_size)
-        if dataset_name == 'OfficeHome':
-            return OfficeHome_Candidate_Set(self.reshape_size, self.batch_size)
-        if dataset_name == 'ColoredMNIST':
+        elif dataset_name == 'OfficeHome':
+            return MultiClassDomainBed(self.reshape_size, self.batch_size, 'OfficeHome')
+        elif dataset_name == 'VLCS':
+            return MultiClassDomainBed(self.reshape_size, self.batch_size, 'VLCS')
+        elif dataset_name == 'ColoredMNIST':
             return ColoredMNIST_Candidate_Set(self.reshape_size, self.batch_size)
     
     def get_all_train_loader_by_tasks(self, tasks):

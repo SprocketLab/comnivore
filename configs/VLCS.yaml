@@ -3,10 +3,10 @@ data:
   batch_size: 128
 
   dataset:
-    dataset_name: OfficeHome
+    dataset_name: VLCS
     root_path: ./artifacts/extracted_features
     feature_path: CLIP/
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/OfficeHome/CLIP/
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/VLCS/CLIP/
     n_orig_features: 769
     n_pac_features: 6
     tasks: ["orig", "segment", "segment_2"]

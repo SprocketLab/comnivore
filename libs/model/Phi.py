@@ -300,9 +300,6 @@ class Phi:
             for i, chunk in tqdm(enumerate(dataloader)):
                 data = chunk[0]
                 target = chunk[1]
-                print(data.shape)
-                print(target.shape)
-                exit()
                 data = data.to(device)
                 target = target.to(device)
                 z = self.extractor.model.extract_feature(data)

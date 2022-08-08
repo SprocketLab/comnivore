@@ -46,7 +46,7 @@ class MLP(torch.nn.Module):
 
 class CLIPMLP(torch.nn.Module):
     """Just  an MLP"""
-    def __init__(self, input_size, class_num, n_hidden=1024, mlp_depth=2, mlp_dropout=0.5, add_residual=False,
+    def __init__(self, input_size, class_num, n_hidden=1024, mlp_depth=2, mlp_dropout=0.1, add_residual=False,
                  add_norm=False):
         super(CLIPMLP, self).__init__()
         self.input = torch.nn.Linear(input_size, n_hidden)
@@ -163,7 +163,8 @@ class CausalClassifier:
         regular_loss = regular_loss_f(y_pred, y_true)
         return regular_loss
 
-    def train(self, model, trainloader, dataset_name, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32, evaluate_func=None):
+    def train(self, model, trainloader, dataset_name, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32,\
+        evaluate_func=None, log_freq=50):
         # wilds_utils = WILDS_utils(dataset_name)
         optimizer = SGD(model.parameters(), lr, momentum=0.9)
         if cuda:
@@ -207,13 +208,12 @@ class CausalClassifier:
             if valdata is not None:
                 outputs_val, labels_val, _ = self.evaluate(model, valdata, batch_size)
                 results_obj_val, results_str_val = evaluate_func(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
-                # wilds_utils.evaluate_wilds(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
                 val_perf.append(results_obj_val)
                 if results_obj_val['acc_wg'] > best_val_perf:
                     best_val_perf = results_obj_val['acc_wg']
                     best_chkpt = copy.deepcopy(model)
                     best_epoch = epoch
-                if (epoch+1) % 50 == 0:
+                if (epoch+1) % log_freq == 0:
                     print(f"epoch: {epoch} Val \n {results_str_val}")
         if best_chkpt is None:
             best_chkpt = copy.deepcopy(model)
@@ -246,18 +246,18 @@ class CausalClassifier:
             return None
         
     def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, dataset_name='waterbirds', \
-        verbose=False, l2=0.1, valdata=None, metadata_val=None, generator=None, alpha=2, evaluate_func=None):
+        verbose=False, l2=0.1, valdata=None, metadata_val=None, generator=None, alpha=2, evaluate_func=None, log_freq=50):
         self.nodes_to_train = [i for i in range(train_data.shape[1]-1)]
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train,generator=generator)
         self.batch_size = batch_size
 
         n_hidden = dataset.shape[0] / (alpha * (dataset.shape[1]+ np.unique(labels).shape[0]))
         n_hidden = int(n_hidden)
-        # int(((dataset.shape[1]-1)*1/2)+np.unique(labels).shape[0])
 
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0], n_hidden=n_hidden)
         self.model, val_perf, self.best_chkpt = self.train(model, trainloader, dataset_name, epochs=epochs, lr=lr, \
-            verbose=verbose, l2_penalty=l2, valdata=valdata, metadata_val=metadata_val, batch_size=batch_size, evaluate_func=evaluate_func)
+            verbose=verbose, l2_penalty=l2, valdata=valdata, metadata_val=metadata_val, batch_size=batch_size, evaluate_func=evaluate_func, \
+                log_freq=log_freq)
         return self.model, val_perf, self.best_chkpt
 
     def evaluate(self, model, test_data, batch_size=None, nodes_to_train=None):

@@ -39,8 +39,6 @@ class Segment_Image(object):
     def __call__(self, image):
         image = np.asarray(image)
         image = self.segment_image(image)
-        # im = Image.fromarray(image)
-        # im.save("test_segment.png")
         rnd = np.random.randint(0,128)
         cv2.imwrite(f"test_segment/test_segment_{rnd}.png", image)
         return image

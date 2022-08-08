@@ -28,10 +28,10 @@ model:
 
 opt:
   epochs: 100
-  lr: 1.e-3
+  lr: 1.e-4
   l2: 0.1
   comnivore_v:
-    all_negative_balance: [0.1,1.0,0.1]
+    all_negative_balance: [0.1,1,0.1]
     snorkel_ep: 500
     snorkel_lr: 1.e-3
   comnivore_g:
@@ -44,3 +44,6 @@ pipeline:
   baseline: True
   indiv_training: False
   fused_causal: True
+
+utils:
+  log_freq: 5
