@@ -134,10 +134,10 @@ def main(args):
     # load params for COmnivore
     #################################################################################
 
-    cache_nodes = []
     
     log(f"FUSE ALGORITHM: {fuser}")
     eval_accs_all = {}
+    cache_nodes = []
     if fuser == 'COmnivore_V':
         COmnivore_params = opt['comnivore_v']
         all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
@@ -156,6 +156,7 @@ def main(args):
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
             traindata, valdata, testdata, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            print("PCA NODES", pca_nodes)
             if not test_duplicate_nodes(pca_nodes, cache_nodes):
                 eval_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
                                             dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, \

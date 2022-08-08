@@ -161,19 +161,21 @@ def log_config(lr, l2, bs, alpha):
 def test_duplicate_nodes(pca_nodes, cache_nodes):
     if len(cache_nodes) == 0:
         return False
-    for cache in cache_nodes:
+    for i, cache in enumerate(cache_nodes):
+        matches = []
         for key in cache:
             c_nodes = cache[key]
             c_nodes = np.sort(c_nodes)
             p_nodes = pca_nodes[key]
             p_nodes = np.sort(p_nodes)
-            if not (c_nodes==p_nodes).all():
-                return False
-    return True
-            
-            
-        
-        
+            if np.array_equal(c_nodes, p_nodes) == True:
+                match = True
+            else:
+                match = False
+            matches.append(match)
+        if np.array(matches).all() == True:
+            return True
+    return False
     
 def get_best_model_acc(eval_accs):
     # assert 'val' in eval_accs and 'test' in eval_accs

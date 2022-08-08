@@ -27,7 +27,7 @@ model:
   alpha: 2
 
 opt:
-  epochs: 100
+  epochs: 2
   lr: 1.e-4
   l2: 0.1
   comnivore_v:
