@@ -41,7 +41,7 @@ opt:
     step: 100
 
 pipeline:
-  baseline: True
+  baseline: False
   indiv_training: False
   fused_causal: True
 

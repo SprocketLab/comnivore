@@ -115,14 +115,16 @@ def main(args):
     log_freq = utils_cfg['log_freq']
     if pipline['baseline']:
         log("Training baseline....")
-        baseline_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+        traindata, valdata, testdata, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=None, scale=False)
+        baseline_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
                                                      dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, log_freq=log_freq)
 
     if pipline['indiv_training']:
         log("Training using individual LF estimates...")
         for lf in G_estimates:
             log(lf)
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
+            traindata, valdata, testdata, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=G_estimates[lf], scale=False)
+            train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
                                          dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func, \
                                              log_freq=log_freq)
 
@@ -132,6 +134,8 @@ def main(args):
     # load params for COmnivore
     #################################################################################
 
+    cache_nodes = []
+    
     log(f"FUSE ALGORITHM: {fuser}")
     eval_accs_all = {}
     if fuser == 'COmnivore_V':
@@ -151,10 +155,15 @@ def main(args):
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
-            eval_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
-                                            log_freq=log_freq)
-            eval_accs_all[cb] = eval_accs
+            traindata, valdata, testdata, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            if not test_duplicate_nodes(pca_nodes, cache_nodes):
+                eval_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+                                            dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, \
+                                                log_freq=log_freq)
+                eval_accs_all[cb] = eval_accs
+                cache_nodes.append(pca_nodes)
+            else:
+                print("Nodes cached, skipping training on these nodes")
     
     elif fuser == 'COmnivore_G':
         COmnivore_params = opt['comnivore_g']
@@ -170,10 +179,15 @@ def main(args):
             g_hats = {}
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
-            eval_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
-                                log_freq=log_freq)
-            eval_accs_all[iter_] = eval_accs
+            traindata, valdata, testdata, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            if not test_duplicate_nodes(pca_nodes, cache_nodes):
+                eval_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+                                dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
+                                    log_freq=log_freq)
+                eval_accs_all[iter_] = eval_accs
+                cache_nodes.append(pca_nodes)
+            else:
+                print("Nodes cached, skipping training on these nodes")
     best_val_acc, best_test = get_best_model_acc(eval_accs_all)
         
     return baseline_accs, best_val_acc, best_test

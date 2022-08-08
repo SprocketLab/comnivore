@@ -71,6 +71,7 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
     y_val = []
     test_baseline = []
     y_test = []
+    pca_nodes = {}
     if G_estimates is None:
         for task in tqdm(samples_dict):
             y_train = samples_dict[task]['full_features'][:,-1]
@@ -90,7 +91,9 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
             task_data = samples_dict[task_lf]['full_features'][:,:-1]
             G = G_estimates[task_lf]
             causal_clf = CausalClassifier(G)
-            nodes_to_train = translate_pca_to_full(feature_map, causal_clf.nodes_to_train)
+            selected_pca_nodes = causal_clf.nodes_to_train
+            pca_nodes[task_lf] = selected_pca_nodes
+            nodes_to_train = translate_pca_to_full(feature_map, selected_pca_nodes)
             print("N NODES TO TRAIN", len(nodes_to_train))
             if len(causal_clf.nodes_to_train) > 0:
                 train_baseline.append(np.take(task_data, nodes_to_train, axis=1))
@@ -119,17 +122,17 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
             test_baseline = scale_data(test_baseline)
         y_test = np.array(y_test)
         test_baseline = np.hstack((test_baseline, y_test.reshape(-1,1)))
-    return train_baseline, val_baseline, test_baseline
+    return train_baseline, val_baseline, test_baseline, pca_nodes
 
 def scale_data(data):
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(data)
     return scaled_data
 
-def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test, generator, dataset_name, \
-                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=MLP, G_estimates=None, scale=False, alpha=2, evaluate_func=None, log_freq=None):
+def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test, generator, dataset_name, \
+                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=CLIPMLP, alpha=2, evaluate_func=None, log_freq=None):
     baseline_accs = {}
-    traindata, valdata, testdata = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates, scale)
+    # traindata, valdata, testdata = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates, scale)
 
     if len(traindata) == 0:
         return 0
@@ -155,8 +158,24 @@ def train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, 
 def log_config(lr, l2, bs, alpha):
     log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | alpha = {alpha}")
 
-def get_best_model_acc(eval_accs):
+def test_duplicate_nodes(pca_nodes, cache_nodes):
+    if len(cache_nodes) == 0:
+        return False
+    for cache in cache_nodes:
+        for key in cache:
+            c_nodes = cache[key]
+            c_nodes = np.sort(c_nodes)
+            p_nodes = pca_nodes[key]
+            p_nodes = np.sort(p_nodes)
+            if not (c_nodes==p_nodes).all():
+                return False
+    return True
+            
+            
+        
+        
     
+def get_best_model_acc(eval_accs):
     # assert 'val' in eval_accs and 'test' in eval_accs
     best_val_acc = float('-inf')
     best_key = None
@@ -164,4 +183,4 @@ def get_best_model_acc(eval_accs):
         if eval_accs[key]['val']['acc_wg'] > best_val_acc:
             best_val_acc = eval_accs[key]['val']['acc_wg']
             best_key = key
-    return eval_accs[key]['val']['acc_wg'], eval_accs[key]['test']['acc_wg']
+    return eval_accs[best_key]['val']['acc_wg'], eval_accs[best_key]['test']['acc_wg']
