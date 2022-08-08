@@ -115,16 +115,16 @@ def main(args):
     log_freq = utils_cfg['log_freq']
     if pipline['baseline']:
         log("Training baseline....")
-        traindata, valdata, testdata, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=None, scale=False)
-        baseline_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+        traindata, valdata_processed, testdata_processed, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=None, scale=False)
+        baseline_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                                      dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, log_freq=log_freq)
 
     if pipline['indiv_training']:
         log("Training using individual LF estimates...")
         for lf in G_estimates:
             log(lf)
-            traindata, valdata, testdata, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=G_estimates[lf], scale=False)
-            train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+            traindata, valdata_processed, testdata_processed, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=G_estimates[lf], scale=False)
+            train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                          dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func, \
                                              log_freq=log_freq)
 
@@ -155,10 +155,9 @@ def main(args):
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
-            traindata, valdata, testdata, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
-            print("PCA NODES", pca_nodes)
+            traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
             if not test_duplicate_nodes(pca_nodes, cache_nodes):
-                eval_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+                eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                             dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, \
                                                 log_freq=log_freq)
                 eval_accs_all[cb] = eval_accs
@@ -180,9 +179,9 @@ def main(args):
             g_hats = {}
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
-            traindata, valdata, testdata, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
             if not test_duplicate_nodes(pca_nodes, cache_nodes):
-                eval_accs = train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test,rng, \
+                eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                 dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
                                     log_freq=log_freq)
                 eval_accs_all[iter_] = eval_accs

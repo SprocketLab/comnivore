@@ -27,7 +27,7 @@ model:
   alpha: 2
 
 opt:
-  epochs: 2
+  epochs: 100
   lr: 1.e-4
   l2: 0.1
   comnivore_v:
@@ -46,4 +46,4 @@ pipeline:
   fused_causal: True
 
 utils:
-  log_freq: 5
+  log_freq: 10

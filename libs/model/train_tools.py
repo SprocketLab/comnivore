@@ -96,6 +96,8 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
             nodes_to_train = translate_pca_to_full(feature_map, selected_pca_nodes)
             print("N NODES TO TRAIN", len(nodes_to_train))
             if len(causal_clf.nodes_to_train) > 0:
+                print("TRAIN", task_data.shape)
+                print("VAL", valdata.shape)
                 train_baseline.append(np.take(task_data, nodes_to_train, axis=1))
                 if valdata is not None:
                     val_baseline.append(np.take(valdata, nodes_to_train, axis=1))
