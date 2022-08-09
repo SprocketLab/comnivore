@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.optim import SGD
+from torch.optim import SGD, Adam, lr_scheduler
 from torch.utils.data import TensorDataset, DataLoader
 from torch.autograd import Variable
 import torch.nn.functional as F
@@ -166,7 +166,10 @@ class CausalClassifier:
     def train(self, model, trainloader, dataset_name, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32,\
         evaluate_func=None, log_freq=50):
         # wilds_utils = WILDS_utils(dataset_name)
-        optimizer = SGD(model.parameters(), lr, momentum=0.9)
+        # optimizer = SGD(model.parameters(), lr, momentum=0.9)
+        optimizer = Adam(model.parameters(), lr, weight_decay=1.e-5)
+        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, len(trainloader), eta_min=0)
+
         if cuda:
             model = model.cuda()
         model.train()
@@ -175,6 +178,7 @@ class CausalClassifier:
         best_val_perf = 0
         best_epoch = 0
         for epoch in tqdm(range(epochs)):
+            scheduler.step()
             correct = 0
             for batch_idx, (data, target) in enumerate(trainloader):
                 if cuda:
@@ -220,7 +224,7 @@ class CausalClassifier:
         print("BEST EPOCH", best_epoch)
         return model, val_perf, best_chkpt
 
-    def features_to_dataloader(self, data, batch_size, nodes_to_train=None, shuffle=True,generator=None):
+    def features_to_dataloader(self, data, batch_size, nodes_to_train=None, shuffle=True, generator=None):
         if nodes_to_train is None:
             nodes_to_train = self.nodes_to_train
         X = data[:, nodes_to_train]
@@ -228,7 +232,7 @@ class CausalClassifier:
         tensor_x = torch.Tensor(X) # transform to torch tensor
         tensor_y = torch.Tensor(y)
         my_dataset = TensorDataset(tensor_x,tensor_y) # create your datset
-        my_dataloader = DataLoader(my_dataset, batch_size, shuffle,generator=generator)
+        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator)
         return my_dataloader, X, y
 
     def train_causal_classifier(self, model, train_data, nodes_to_train=None, batch_size=64, lr=1e-3, epochs=20, verbose=False):
@@ -251,8 +255,11 @@ class CausalClassifier:
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train,generator=generator)
         self.batch_size = batch_size
 
-        n_hidden = dataset.shape[0] / (alpha * (dataset.shape[1]+ np.unique(labels).shape[0]))
-        n_hidden = int(n_hidden)
+        input_size = dataset.shape[1]
+        output_size = np.unique(labels).shape[0]
+        # n_hidden = dataset.shape[0] / (alpha * (dataset.shape[1]+ np.unique(labels).shape[0]))
+        # n_hidden = int(n_hidden)
+        n_hidden = int((2/3) * (input_size + output_size))
 
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0], n_hidden=n_hidden)
         self.model, val_perf, self.best_chkpt = self.train(model, trainloader, dataset_name, epochs=epochs, lr=lr, \

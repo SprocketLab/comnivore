@@ -255,9 +255,9 @@ class VLCS(MultipleEnvironmentImageFolder):
 class PACS(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 300
     ENVIRONMENTS = ["A", "C", "P", "S"]
-    def __init__(self, root, test_envs, hparams):
+    def __init__(self, root, test_envs, hparams, extra_transforms=None):
         self.dir = os.path.join(root, "PACS/")
-        super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams)
+        super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams, extra_transforms)
 
 class DomainNet(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 1000

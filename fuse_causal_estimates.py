@@ -111,8 +111,11 @@ def main(args):
         evaluate_func = DomainBed_utils(dataset_name).evaluate_domainbed
     
     baseline_accs = None
-    utils_cfg = cfg['utils']
-    log_freq = utils_cfg['log_freq']
+    if 'utils' in cfg:
+        utils_cfg = cfg['utils']
+        log_freq = utils_cfg['log_freq']
+    else:
+        log_freq = 50
     if pipline['baseline']:
         log("Training baseline....")
         traindata, valdata_processed, testdata_processed, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=None, scale=False)
@@ -128,6 +131,8 @@ def main(args):
                                          dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func, \
                                              log_freq=log_freq)
 
+    if pipline['fused_causal'] == False:
+        return baseline_accs
     log("Training with fused causal estimates...")
 
     #################################################################################
@@ -156,7 +161,7 @@ def main(args):
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
             traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
-            if not test_duplicate_nodes(pca_nodes, cache_nodes):
+            if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
                 eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                             dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func, \
                                                 log_freq=log_freq)
@@ -180,7 +185,7 @@ def main(args):
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
             traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
-            if not test_duplicate_nodes(pca_nodes, cache_nodes):
+            if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
                 eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
                                 dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func, \
                                     log_freq=log_freq)
@@ -205,10 +210,11 @@ if __name__ == '__main__':
     parser.add_argument('-s_ep', '--snorkel_epochs', type=int, help='snorkel epochs')
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
     args = parser.parse_args()
-    # print(args)
     baseline_accs, best_val_acc, best_test = main(args)
     if baseline_accs is not None:
-        print("Baseline test accuracy: {:.3f}".format(baseline_accs['test']['acc_wg']))
-    print("Best validation set accuracy: {:.3f}".format(best_val_acc))
-    print("Best model test accuracy: {:.3f}".format(best_test))
+        log("Baseline validation set accuracy: {:.3f}".format(baseline_accs['val'][list(baseline_accs['val'].keys())[0]]))
+        log("Baseline test accuracy: {:.3f}".format(baseline_accs['test']['acc_wg']))
+    if best_val_acc is not None and best_test is not None:
+        log("Best validation set accuracy: {:.3f}".format(best_val_acc))
+        log("Best model test accuracy: {:.3f}".format(best_test))
     os._exit(os.EX_OK)

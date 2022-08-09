@@ -96,8 +96,6 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
             nodes_to_train = translate_pca_to_full(feature_map, selected_pca_nodes)
             print("N NODES TO TRAIN", len(nodes_to_train))
             if len(causal_clf.nodes_to_train) > 0:
-                print("TRAIN", task_data.shape)
-                print("VAL", valdata.shape)
                 train_baseline.append(np.take(task_data, nodes_to_train, axis=1))
                 if valdata is not None:
                     val_baseline.append(np.take(valdata, nodes_to_train, axis=1))
@@ -143,13 +141,15 @@ def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, met
     baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs, dataset_name=dataset_name, \
                             verbose=False, valdata=valdata, metadata_val=metadata_val, l2=l2, generator=generator, \
                             alpha=alpha, evaluate_func=evaluate_func,log_freq=log_freq)
-
+    # print(baseline.model)
+    # exit()
     # wilds_utils = WILDS_utils(dataset_name)
     outputs_val, labels_val, _ = baseline.evaluate(baseline.best_chkpt, valdata)
     results_obj_val, results_str_val = evaluate_func(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
     log(f"Val \n {results_str_val}")
 
     outputs_test, labels_test, _ = baseline.evaluate(baseline.model, testdata)
+
     results_obj_test, results_str_test = evaluate_func(torch.Tensor(outputs_test), torch.Tensor(labels_test), torch.Tensor(metadata_test))
 
     log(f"Test \n {results_str_test}")

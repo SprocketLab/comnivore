@@ -19,6 +19,8 @@ class Candidate_Set:
             return MultiClassDomainBed(self.reshape_size, self.batch_size, 'OfficeHome')
         elif dataset_name == 'VLCS':
             return MultiClassDomainBed(self.reshape_size, self.batch_size, 'VLCS')
+        elif dataset_name == 'PACS':
+            return MultiClassDomainBed(self.reshape_size, self.batch_size, 'PACS')
         elif dataset_name == 'ColoredMNIST':
             return ColoredMNIST_Candidate_Set(self.reshape_size, self.batch_size)
     

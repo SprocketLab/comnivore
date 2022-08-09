@@ -11,7 +11,7 @@ class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
         self.dataset_orig = vars(datasets)["ColoredMNIST"](domainbed_const.DATA_DIR,
                                                domainbed_const.TEST_ENVS, {'data_augmentation': None})
 
-        super(ColoredMNIST_Candidate_Set, self).__init__(self.dataset_orig)
+        super(ColoredMNIST_Candidate_Set, self).__init__(self.dataset_orig, "ColoredMNIST")
         self.batch_size = batch_size
         self.reshape_size = (reshape_size, reshape_size)
     

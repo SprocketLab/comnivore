@@ -41,9 +41,9 @@ opt:
     step: 100
 
 pipeline:
-  baseline: False
+  baseline: True
   indiv_training: False
   fused_causal: True
 
 utils:
-  log_freq: 10
+  log_freq: 20

@@ -13,19 +13,15 @@ holdout_fraction = domainbed_const.HOLDOUT_FRACTION
 test_envs = domainbed_const.TEST_ENVS
 
 class DomainBed_Candidate_Set:
-    def __init__(self, dataset):
-        # self.dataset = dataset
+    def __init__(self, dataset, dataset_name):
+        self.dataset_name = dataset_name
         self.num_envs = len(dataset)
         self.keys = list(range(len(dataset)))
         np.random.RandomState(split_seed).shuffle(self.keys)
         self.in_splits, self.out_splits = self.get_splits(dataset, self.keys)
     
-    # def set_dataset(self, dataset):
-    #     self.dataset = dataset
-    #     self.in_splits, self.out_splits = self.get_splits(self.keys)
     
     def get_splits(self, dataset, keys=None):
-        # print("DATASET TRANSFORMS", dataset.transform)
         in_splits = []
         out_splits = []
         for env_i, env in enumerate(dataset):
@@ -61,7 +57,7 @@ class DomainBed_Candidate_Set:
         train_metadata = []
         for split in self.in_splits:
             env_i = split[1]
-            if 'samples' not in split[0].underlying_dataset:
+            if self.dataset_name == "ColoredMNIST":
             # isinstance(split[0].underlying_dataset, type(TensorDataset)):
                 train_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
             else:
@@ -73,7 +69,7 @@ class DomainBed_Candidate_Set:
         val_metadata = []
         for split in self.out_splits:
             env_i = split[1]
-            if 'samples' not in split[0].underlying_dataset:
+            if self.dataset_name == "ColoredMNIST":
             # isinstance(split[0].underlying_dataset, type(TensorDataset)):
                 val_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
             else:
@@ -84,13 +80,13 @@ class DomainBed_Candidate_Set:
         test_metadata = []
         for split in self.in_splits:
             env_i = split[1]
-            if 'samples' not in split[0].underlying_dataset:
+            if self.dataset_name == "ColoredMNIST":
                 test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
             else:
                 test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
         for split in self.out_splits:
             env_i = split[1]
-            if 'samples' not in split[0].underlying_dataset:
+            if self.dataset_name == "ColoredMNIST":
                 test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
             else:
                 test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])

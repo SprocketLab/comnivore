@@ -44,7 +44,7 @@ class DomainBed_utils:
         outputs = outputs.detach().cpu().numpy().flatten()
         labels = labels.detach().cpu().numpy().flatten()
         metadata = metadata.detach().cpu().numpy().flatten()
-        
+        # print()
         if np.unique(metadata).shape[0] > 1:
             avg_acc_all = np.argwhere(outputs == labels).shape[0] / len(labels)
             results['avg_acc_all'] = avg_acc_all
@@ -70,10 +70,4 @@ class DomainBed_utils:
         
         results_str = self.get_results_str(results)
         return results, results_str
-        
-        # np.argwhere(labels.flatten() in self.train_envs)
-        # print(avg_acc_all)
-        # print(train_env_point_idxs)
-        # exit()
-        
         

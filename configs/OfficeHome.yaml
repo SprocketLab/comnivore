@@ -9,7 +9,7 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/OfficeHome/CLIP/
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["orig", "segment", "segment_2"]
+    tasks: ["augment"]
 
 extraction_pipeline:
   reshape_size: 224
@@ -27,8 +27,8 @@ model:
   alpha: 2
 
 opt:
-  epochs: 150
-  lr: 1.e-3
+  epochs: 200
+  lr: 3.e-3
   l2: 0.0
   comnivore_v:
     all_negative_balance: [0.1,1.0,0.1]
@@ -41,9 +41,9 @@ opt:
     step: 100
 
 pipeline:
-  baseline: False
+  baseline: True
   indiv_training: False
-  fused_causal: False
+  fused_causal: True
 
 utils:
   log_freq: 5
