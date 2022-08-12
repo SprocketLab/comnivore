@@ -129,37 +129,49 @@ def scale_data(data):
     scaled_data = scaler.fit_transform(data)
     return scaled_data
 
-def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test, generator, dataset_name, \
-                                    epochs=20, lr=1e-3, bs=32, l2=0.1, model=CLIPMLP, alpha=2, evaluate_func=None, log_freq=None):
+def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test, generator, \
+                                    epochs=20, lr=1e-3, bs=32, l2=0.1, dropout=0.1, model=CLIPMLP, n_layers=2, evaluate_func=None, log_freq=None, \
+                                        tune_by_metric='acc_wg'):
     baseline_accs = {}
-    # traindata, valdata, testdata = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates, scale)
 
     if len(traindata) == 0:
         return 0
 
     baseline = CausalClassifier()
-    baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs, dataset_name=dataset_name, \
-                            verbose=False, valdata=valdata, metadata_val=metadata_val, l2=l2, generator=generator, \
-                            alpha=alpha, evaluate_func=evaluate_func,log_freq=log_freq)
-    # print(baseline.model)
-    # exit()
-    # wilds_utils = WILDS_utils(dataset_name)
+    baseline.train_baseline(model, traindata, batch_size=bs, lr=lr, epochs=epochs,\
+                            verbose=False, valdata=valdata, metadata_val=metadata_val, \
+                                n_layers=n_layers, l2=l2, dropout=dropout, generator=generator, \
+                            evaluate_func=evaluate_func,log_freq=log_freq,tune_by_metric=tune_by_metric)
+
     outputs_val, labels_val, _ = baseline.evaluate(baseline.best_chkpt, valdata)
-    results_obj_val, results_str_val = evaluate_func(torch.Tensor(outputs_val), torch.Tensor(labels_val), torch.Tensor(metadata_val))
+    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
     log(f"Val \n {results_str_val}")
 
     outputs_test, labels_test, _ = baseline.evaluate(baseline.model, testdata)
 
-    results_obj_test, results_str_test = evaluate_func(torch.Tensor(outputs_test), torch.Tensor(labels_test), torch.Tensor(metadata_test))
+    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_test)
 
     log(f"Test \n {results_str_test}")
     baseline_accs['val'] = {k:v for k,v in results_obj_val.items()}
     baseline_accs['test'] = {k:v for k,v in results_obj_test.items()}
     return baseline_accs
 
-def log_config(lr, l2, bs, alpha):
-    log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | alpha = {alpha}")
+def log_config(lr, l2, bs, dropout, n_layers):
+    log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | dropout = {dropout} | n_layers = {n_layers}")
 
+def test_baseline_nodes(pca_nodes, n_pca_features):
+    matches = []
+    for key in pca_nodes:
+        nodes_ = pca_nodes[key]
+        if len(nodes_) == n_pca_features-1:
+            match = True
+        else:
+            match = False
+        matches.append(match)
+    if np.array(matches).all() == True:
+        return True
+    return False
+        
 def test_duplicate_nodes(pca_nodes, cache_nodes):
     if len(cache_nodes) == 0:
         return False
@@ -179,12 +191,11 @@ def test_duplicate_nodes(pca_nodes, cache_nodes):
             return True
     return False
     
-def get_best_model_acc(eval_accs):
-    # assert 'val' in eval_accs and 'test' in eval_accs
+def get_best_model_acc(eval_accs, tune_by='acc_wg'):
     best_val_acc = float('-inf')
     best_key = None
     for key in eval_accs:
-        if eval_accs[key]['val']['acc_wg'] > best_val_acc:
-            best_val_acc = eval_accs[key]['val']['acc_wg']
+        if eval_accs[key]['val'][tune_by] > best_val_acc:
+            best_val_acc = eval_accs[key]['val'][tune_by]
             best_key = key
-    return eval_accs[best_key]['val']['acc_wg'], eval_accs[best_key]['test']['acc_wg']
+    return eval_accs[best_key]['val'][tune_by], eval_accs[best_key]['test'][tune_by]

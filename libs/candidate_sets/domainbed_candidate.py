@@ -2,10 +2,8 @@ from libs.candidate_sets.utils.domainbed_const import HOLDOUT_FRACTION
 from .utils import domainbed_const
 from libs.domainbed.lib import misc
 import numpy as np
-from torchvision import transforms
 from torch.utils.data import DataLoader, TensorDataset
 import torch
-import torch.nn.functional as F
 
 
 split_seed = domainbed_const.SPLIT_SEED
@@ -58,10 +56,9 @@ class DomainBed_Candidate_Set:
         for split in self.in_splits:
             env_i = split[1]
             if self.dataset_name == "ColoredMNIST":
-            # isinstance(split[0].underlying_dataset, type(TensorDataset)):
-                train_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+                train_metadata.extend([f"env{env_i}_in" for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
             else:
-                train_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
+                train_metadata.extend([f"env{env_i}_in" for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
         return np.vstack(train_metadata)
 
     def get_val_metadata(self):
@@ -70,10 +67,9 @@ class DomainBed_Candidate_Set:
         for split in self.out_splits:
             env_i = split[1]
             if self.dataset_name == "ColoredMNIST":
-            # isinstance(split[0].underlying_dataset, type(TensorDataset)):
-                val_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
+                val_metadata.extend([f"env{env_i}_out" for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in _train_envs])
             else:
-                val_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
+                val_metadata.extend([f"env{env_i}_out" for i in range(len(split[0].underlying_dataset.samples)) if env_i in _train_envs])
         return np.vstack(val_metadata)
     
     def get_test_metadata(self):
@@ -81,15 +77,15 @@ class DomainBed_Candidate_Set:
         for split in self.in_splits:
             env_i = split[1]
             if self.dataset_name == "ColoredMNIST":
-                test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+                test_metadata.extend([f"env{env_i}_in" for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
             else:
-                test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
+                test_metadata.extend([f"env{env_i}_in" for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
         for split in self.out_splits:
             env_i = split[1]
             if self.dataset_name == "ColoredMNIST":
-                test_metadata.extend([env_i for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
+                test_metadata.extend([f"env{env_i}_out" for i in range(split[0].underlying_dataset.tensors[1].shape[0]) if env_i in test_envs])
             else:
-                test_metadata.extend([env_i for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
+                test_metadata.extend([f"env{env_i}_out" for i in range(len(split[0].underlying_dataset.samples)) if env_i in test_envs])
         return np.vstack(test_metadata)
     
     def get_train_loader(self, dataset,  batch_size):
