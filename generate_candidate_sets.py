@@ -73,11 +73,10 @@ def main(args):
     test_loader = candidate_set.get_test_loader()
     val_loader = candidate_set.get_val_loader()
     
-    # if dataset_name in WILDS_DATASETS:
     train_metadata = candidate_set.get_train_metadata()
     test_metadata = candidate_set.get_test_metadata()
     val_metadata = candidate_set.get_val_metadata()
-        
+    
     store_features(store_dir, train_metadata, "train", "metadata")
     store_features(store_dir, test_metadata, "test", "metadata")
     store_features(store_dir, val_metadata, "val", "metadata")

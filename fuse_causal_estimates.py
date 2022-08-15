@@ -91,11 +91,7 @@ def main(args):
         bs = args.batch_size
     else:
         bs = cfg['data']['batch_size']
-    if 'alpha' in args and not isinstance(args.alpha,type(None)):
-        alpha = args.alpha
-    else:
-        alpha = cfg['model']['alpha']
-    log_config(lr, l2, bs, alpha)
+
 
     model_cfg = cfg['model']['output_model']
     model = select_model(model_cfg)
@@ -109,27 +105,56 @@ def main(args):
         evaluate_func = WILDS_utils(dataset_name).evaluate_wilds
     elif dataset_name in DOMAINBED_DATASETS:
         evaluate_func = DomainBed_utils(dataset_name).evaluate_domainbed
-        
+    
+    if 'dropout' in opt:
+        dropout = opt['dropout']
+    else:
+        dropout = 0.0
+    if 'tune_by' in cfg['model']:
+        tune_by_metric = cfg['model']['tune_by']
+    else:
+        tune_by_metric = 'acc_wg'
+    if 'n_layers' in opt:
+        n_layers = opt['n_layers']
+    else:
+        n_layers = 2
+    log_config(lr, l2, bs, dropout, n_layers)
+    baseline_accs = None
+    if 'utils' in cfg:
+        utils_cfg = cfg['utils']
+        log_freq = utils_cfg['log_freq']
+    else:
+        log_freq = 50
     if pipline['baseline']:
         log("Training baseline....")
-        baseline_accs = train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                                     dataset_name, epochs, lr, bs, l2, model=model, alpha=alpha, evaluate_func=evaluate_func)
+        traindata, valdata_processed, testdata_processed, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=None, scale=False)
+        baseline_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
+                                                    epochs, lr, bs, l2, dropout=dropout, model=model, n_layers=n_layers, \
+                                                        evaluate_func=evaluate_func, log_freq=log_freq, \
+                                                         tune_by_metric=tune_by_metric)
 
     if pipline['indiv_training']:
         log("Training using individual LF estimates...")
         for lf in G_estimates:
             log(lf)
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                         dataset_name, epochs, lr, bs, l2, model=model, G_estimates=G_estimates[lf], alpha=alpha, evaluate_func=evaluate_func)
+            traindata, valdata_processed, testdata_processed, _ = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=G_estimates[lf], scale=False)
+            train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
+                                        epochs, lr, bs, l2, dropout=dropout, model=model, n_layers=n_layers,\
+                                            G_estimates=G_estimates[lf], evaluate_func=evaluate_func, \
+                                             log_freq=log_freq, tune_by_metric=tune_by_metric)
 
+    if pipline['fused_causal'] == False:
+        return baseline_accs, None, None
     log("Training with fused causal estimates...")
 
     #################################################################################
     # load params for COmnivore
     #################################################################################
 
-    log(f"FUSE ALGORITHM: {fuser}")
     
+    log(f"FUSE ALGORITHM: {fuser}")
+    eval_accs_all = {}
+    cache_nodes = []
     if fuser == 'COmnivore_V':
         COmnivore_params = opt['comnivore_v']
         all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
@@ -143,11 +168,23 @@ def main(args):
             snorkel_ep = COmnivore_params['snorkel_ep']
         log(f"SNORKEL PARAMS: lr {snorkel_lr} | ep {snorkel_ep}")
         COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
+        
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             g_hats = COmnivore.fuse_estimates(cb, n_pca_features)
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                                        dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
+            traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            if test_baseline_nodes(pca_nodes, n_pca_features):
+                print("Same as baseline nodes.. skipping training")
+                continue
+            if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
+                eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
+                                            epochs, lr, bs, l2, dropout=dropout, model=model, n_layers=n_layers, \
+                                                evaluate_func=evaluate_func, \
+                                                log_freq=log_freq, tune_by_metric=tune_by_metric)
+                eval_accs_all[cb] = eval_accs
+                cache_nodes.append(pca_nodes)
+            else:
+                print("Nodes cached.. skipping training")
     
     elif fuser == 'COmnivore_G':
         COmnivore_params = opt['comnivore_g']
@@ -163,11 +200,22 @@ def main(args):
             g_hats = {}
             for task in g_hats_per_task:
                 g_hats[task] = g_hats_per_task[task][i]
-            train_and_evaluate_end_model(samples_dict, valdata, metadata_val, testdata, metadata_test,rng, \
-                            dataset_name, epochs, lr, bs, l2, model=model, G_estimates=g_hats, alpha=alpha, evaluate_func=evaluate_func)
+            traindata, valdata_processed, testdata_processed, pca_nodes = get_data_from_feat_label_array(samples_dict, valdata, testdata, G_estimates=g_hats, scale=False)
+            if test_baseline_nodes(pca_nodes, n_pca_features):
+                print("Same as baseline nodes.. skipping training")
+                continue
+            if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
+                eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
+                                epochs, lr, bs, l2, dropout=dropout, model=model, n_layers=n_layers, \
+                                    G_estimates=g_hats, evaluate_func=evaluate_func, \
+                                    log_freq=log_freq, tune_by_metric=tune_by_metric)
+                eval_accs_all[iter_] = eval_accs
+                cache_nodes.append(pca_nodes)
+            else:
+                print("Nodes cached, skipping training on these nodes")
+    best_val_acc, best_test = get_best_model_acc(eval_accs_all, tune_by=tune_by_metric)
         
-        
-    return 0
+    return baseline_accs, best_val_acc, best_test
 
     #################################################################################
 
@@ -178,10 +226,20 @@ if __name__ == '__main__':
     parser.add_argument('-l2', '--l2_regularizer', type=float, help='end model l2 regularizer')
     parser.add_argument('-bs', '--batch_size', type=int, help='end model training batch size')
     parser.add_argument('-s_lr', '--snorkel_lr', type=float, help='snorkel learning rate')
-    parser.add_argument('-a', '--alpha', type=int, help='hidden neurons alpha')
     parser.add_argument('-s_ep', '--snorkel_epochs', type=int, help='snorkel epochs')
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
     args = parser.parse_args()
-    # print(args)
-    main(args)
+    baseline_accs, best_val_acc, best_test = main(args)
+    if baseline_accs is not None:
+        print("\nBaseline Val")
+        for key in list(baseline_accs['val'].keys()):
+            val_acc = baseline_accs['val'][key]
+            print("{}: {:.3f}".format(key, val_acc))
+        print("\nBaseline Test")
+        for key in list(baseline_accs['test'].keys()):
+            test_acc = baseline_accs['test'][key]
+            print("{}: {:.3f}".format(key, test_acc))
+    if best_val_acc is not None and best_test is not None:
+        log("\nBest validation set worst case accuracy: {:.3f}".format(best_val_acc))
+        log("Best model test worst case accuracy: {:.3f}".format(best_test))
     os._exit(os.EX_OK)
