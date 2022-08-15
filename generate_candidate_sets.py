@@ -1,5 +1,5 @@
 from libs.core import load_config
-from libs.model import Extractor_CLIP, Extractor_VAE, Extractor_CNN, Phi
+from libs.model import Extractor_CLIP, Extractor_VAE, Extractor_CNN, Phi, Extractor_BERT
 from libs.candidate_sets import Candidate_Set
 from libs.utils.logger import log, set_log_path
 from libs.utils import *
@@ -18,6 +18,7 @@ def get_model_dict():
         'CLIP': Extractor_CLIP,
         'VAE': Extractor_VAE,
         'CNN': Extractor_CNN,
+        'BERT': Extractor_BERT,
     }
     
 def extract_features(extractor_model, dataloader):
@@ -64,6 +65,8 @@ def main(args):
         z_hidden = extraction_config['z_hidden']
     
     environments = dataset_cfg['tasks']
+
+    # For NLP task, reshape_size means nothing here
     candidate_set = Candidate_Set(dataset_name, extraction_reshape_size, extraction_bs)
     
     train_loaders = candidate_set.get_all_train_loader_by_tasks(environments)
@@ -81,7 +84,21 @@ def main(args):
     
     model = extraction_config['extractor_model']
     extractor_model = get_model_dict()[model](z_hidden)
-    
+
+
+    # # check new dataset
+    # idx = 1
+    # for each_loader in train_loaders:
+    #     for i,x in enumerate(each_loader):
+    #         if i == idx:
+    #             print(x[0][0])
+    #             print(x[1][0])
+    #             print(x[2][0])
+    #
+    # print("Done!!!!!!!!!!!!!!!!")
+    # exit()
+
+
     for i, train_loader in enumerate(train_loaders):
         env = environments[i]
         log(f"Extracting {env} training features....")

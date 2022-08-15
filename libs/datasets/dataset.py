@@ -1,7 +1,8 @@
 WILDS_DATASETS = [
     "waterbirds",
     "celebA",
-    "camelyon17"
+    "camelyon17",
+    'civilcomments'
 ]
 
 DOMAINBED_DATASETS = [

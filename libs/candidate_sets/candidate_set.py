@@ -1,9 +1,9 @@
-from .waterbirds_candidate import Waterbirds_Candidate_Set
-from .officehome_candidate import OfficeHome_Candidate_Set
-from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
+# from .waterbirds_candidate import Waterbirds_Candidate_Set
+# from .officehome_candidate import OfficeHome_Candidate_Set
+# from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
+from .civilcomments_condidate import CivilComments_Candidate_Set
 from libs.model import *
 from tqdm import tqdm
-
 
 class Candidate_Set:
     def __init__(self, dataset_name, reshape_size, batch_size):
@@ -19,13 +19,19 @@ class Candidate_Set:
             return OfficeHome_Candidate_Set(self.reshape_size, self.batch_size)
         if dataset_name == 'ColoredMNIST':
             return ColoredMNIST_Candidate_Set(self.reshape_size, self.batch_size)
+        if dataset_name == 'CivilComments':
+            return CivilComments_Candidate_Set(self.reshape_size,self.batch_size)
     
     def get_all_train_loader_by_tasks(self, tasks):
         loaders = []
         log("Getting tain loaders for all environments....")
         for task in tqdm(tasks):
-            task_loader =  self.candidate_set.get_loader_dict()[task]
+            print(task)
+            print('3')
+            task_loader =  self.candidate_set.get_loader_dict()[task]()
+            print('3')
             loaders.append(task_loader)
+            print('3')
         return loaders
     
     def get_test_loader(self):

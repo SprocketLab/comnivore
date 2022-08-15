@@ -10,6 +10,11 @@ from torchvision import models
 from torch.autograd import Variable
 
 from transformers import CLIPProcessor, CLIPVisionModel
+from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import DistilBertForSequenceClassification
+from transformers import DistilBertTokenizerFast
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+
 
 from sklearn.decomposition import PCA
 from sklearn import datasets, cluster
@@ -22,29 +27,31 @@ LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
 log_interval = 10
 epochs = 20
-workers=10
+workers = 10
 
 device = torch.device("cuda")
 
+in_dim = 28 ** 2 * 3
+emb_dim = 5
+hidden_dim = 1000
 
-in_dim =28**2 *3
-emb_dim=5
-hidden_dim=1000
+
 # z_hidden = 5
 
 def setup_seed(seed):
-    random.seed(seed)                          
-    np.random.seed(seed)                       
-    torch.manual_seed(seed)                    
-    torch.cuda.manual_seed(seed)               
-    torch.cuda.manual_seed_all(seed)           
-    torch.backends.cudnn.deterministic = True  
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+
 
 class Extractor_VAE:
     def __init__(self, z_hidden):
         self.model = self.VAE(z_hidden)
         self.z_hidden = z_hidden
-    
+
     class VAE(nn.Module):
         def __init__(self, z_hidden):
             super(Extractor_VAE.VAE, self).__init__()
@@ -52,7 +59,7 @@ class Extractor_VAE:
             self.fc1 = nn.Linear(in_dim, hidden_dim)
             self.fc21 = nn.Linear(hidden_dim, z_hidden)
             self.fc22 = nn.Linear(hidden_dim, z_hidden)
-            self.fc3 = nn.Linear(z_hidden+emb_dim, hidden_dim)
+            self.fc3 = nn.Linear(z_hidden + emb_dim, hidden_dim)
             self.fc4 = nn.Linear(hidden_dim, in_dim)
 
             self.embed = nn.Embedding(10, emb_dim)
@@ -63,13 +70,13 @@ class Extractor_VAE:
 
         def decode(self, z, emb):
             lab_emb = self.embed(emb)
-            h3 = F.relu(self.fc3(torch.cat((z,lab_emb), -1)))
+            h3 = F.relu(self.fc3(torch.cat((z, lab_emb), -1)))
             return torch.sigmoid(self.fc4(h3))
 
         def forward(self, x, emb):
             mu, logvar = self.encode(x.view(-1, in_dim))
             return self.decode(mu, emb), mu, logvar
-        
+
         def extract_feature(self, x):
             feat, _ = self.encode(x.view(-1, in_dim))
             return feat
@@ -111,6 +118,7 @@ class Extractor_VAE:
             outputs.append((epoch, data, recon_image))
         return outputs
 
+
 class Extractor_CNN:
     def __init__(self, z_hidden, model='Vanilla_CNN', class_num=10):
         assert model in ['ResNet', 'Vanilla_CNN', 'Vgg']
@@ -119,39 +127,39 @@ class Extractor_CNN:
         elif model == 'Vanilla_CNN':
             self.model = self.Vanilla_CNN(z_hidden, class_num)
         self.z_hidden = z_hidden
-    
+
     class ResNet(nn.Module):
-        def __init__(self, z_hidden, class_num = 10):
+        def __init__(self, z_hidden, class_num=10):
             super(Extractor_CNN.ResNet, self).__init__()
             self.pretrained_model = models.resnet18(pretrained=True)
             num_ftrs = self.pretrained_model.fc.in_features
             self.feature_extractor = nn.Sequential(*list(self.pretrained_model.children())[:-1])
             self.fc1 = nn.Linear(num_ftrs, z_hidden)
             self.fc2 = nn.Linear(z_hidden, class_num)
-        
+
         def forward(self, x):
             feature = self.feature_extractor(x)
             feature = torch.squeeze(feature)
             feature = F.relu(self.fc1(feature))
             out = self.fc2(feature)
             return out, feature
-        
+
         def extract_feature(self, x):
             _, feat = self.forward(x)
             return feat
-        
+
         def compute_l1_loss(self, w):
             return torch.abs(w).sum()
-  
+
         def compute_l2_loss(self, w):
             return torch.square(w).sum()
 
     class Vanilla_CNN(nn.Module):
-        def __init__(self, z_hidden, class_num = 10):
+        def __init__(self, z_hidden, class_num=10):
             super(Extractor_CNN.Vanilla_CNN, self).__init__()
             self.conv1 = nn.Conv2d(3, 32, kernel_size=5)
             self.conv2 = nn.Conv2d(32, 32, kernel_size=5)
-            self.conv3 = nn.Conv2d(32,64, kernel_size=5)
+            self.conv3 = nn.Conv2d(32, 64, kernel_size=5)
             self.fc1 = nn.Linear(576, z_hidden)
             self.fc2 = nn.Linear(z_hidden, class_num)
 
@@ -159,24 +167,24 @@ class Extractor_CNN:
             x = F.relu(self.conv1(x))
             x = F.relu(F.max_pool2d(self.conv2(x), 2))
             x = F.dropout(x, p=0.5, training=self.training)
-            x = F.relu(F.max_pool2d(self.conv3(x),2))
+            x = F.relu(F.max_pool2d(self.conv3(x), 2))
             x = F.dropout(x, p=0.5, training=self.training)
             x = torch.flatten(x, 1)
             feature = F.relu(self.fc1(x))
             # x = feature, training=self.training)
             x = self.fc2(feature)
             return x, feature
-        
+
         def extract_feature(self, x):
             _, feat = self.forward(x)
             return feat
-        
+
         def compute_l1_loss(self, w):
             return torch.abs(w).sum()
-  
+
         def compute_l2_loss(self, w):
             return torch.square(w).sum()
-        
+
     def train(self, train_loader, num_epochs=epochs, lr=1e-3):
         setup_seed(42)
         optimizer = torch.optim.Adam(self.model.parameters(), lr)
@@ -211,13 +219,12 @@ class Extractor_CNN:
                 optimizer.step()
 
                 # Total correct predictions
-                predicted = torch.max(output.data, 1)[1] 
+                predicted = torch.max(output.data, 1)[1]
                 correct += (predicted == var_y_batch).sum()
                 n += var_y_batch.shape[0]
 
             print('====> Epoch: {} Average loss: {}, Acc:{}'.format(
-                epoch, loss.item() / len(train_loader.dataset), (correct*100) / n))
-
+                epoch, loss.item() / len(train_loader.dataset), (correct * 100) / n))
 
 
 class Extractor_CLIP:
@@ -225,16 +232,16 @@ class Extractor_CLIP:
         self.z_hidden = z_hidden
         self.model = self.CLIP_Model()
         self.post_processor = self.FA_projector(z_hidden).project_
-    
+
     class FA_projector:
         def __init__(self, z_hidden):
             self.fa = cluster.FeatureAgglomeration(n_clusters=z_hidden)
-        
+
         def project_(self, X, y):
             projection = self.fa.fit_transform(X)
             mapping, components = self.get_fa_feature_mapping()
             return projection, mapping, components
-        
+
         def get_fa_feature_mapping(self):
             cluster_labels = self.fa.labels_
             labels = np.unique(cluster_labels)
@@ -243,16 +250,16 @@ class Extractor_CLIP:
                 top_incluencing_feat = np.argwhere(cluster_labels == label_).flatten()
                 mapping[label_] = top_incluencing_feat
             return mapping, cluster_labels
-    
+
     class PCA_projector:
         def __init__(self, z_hidden):
             self.pca = PCA(z_hidden)
-        
-        def project_(self, X, y =None):
+
+        def project_(self, X, y=None):
             projection = self.pca.fit_transform(X)
             mapping, components = self.get_pc_feature_mapping()
             return projection, mapping, components
-        
+
         def get_pc_feature_mapping(self, epsilon=0.1):
             components = np.abs(self.pca.components_)
             n_components, n_features = components.shape
@@ -271,13 +278,13 @@ class Extractor_CLIP:
 
         def eval(self):
             pass
-        
+
         def get_image_as_list(self, dataset):
             images = []
             for (imgs) in dataset:
                 images.append((imgs.detach().cpu().numpy()))
             return images
-        
+
         def extract_feature(self, images):
             img_list = self.get_image_as_list(images)
             outputs = self.extract_feature_batch(img_list)
@@ -289,30 +296,123 @@ class Extractor_CLIP:
                 outputs = self.model(inputs.pixel_values)
                 return outputs.pooler_output.detach().cpu().numpy()
 
+
+class Extractor_BERT:
+
+    def __init__(self, z_hidden):
+        self.model = self.Bert_Model()
+        self.post_processor = self.FA_projector(z_hidden).project_
+
+    class FA_projector:
+        def __init__(self, z_hidden):
+            self.fa = cluster.FeatureAgglomeration(n_clusters=z_hidden)
+
+        def project_(self, X, y):
+            projection = self.fa.fit_transform(X)
+            mapping, components = self.get_fa_feature_mapping()
+            return projection, mapping, components
+
+        def get_fa_feature_mapping(self):
+            cluster_labels = self.fa.labels_
+            labels = np.unique(cluster_labels)
+            mapping = {}
+            for label_ in labels:
+                top_incluencing_feat = np.argwhere(cluster_labels == label_).flatten()
+                mapping[label_] = top_incluencing_feat
+            return mapping, cluster_labels
+
+    class Bert_Model:
+        def __init__(self):
+            self.tokenizer = DistilBertTokenizerFast.from_pretrained('bert-base-uncased', do_lower_case=True)
+            self.MAX_LENGTH = 256
+            self.model_pretrained = DistilBertForSequenceClassification.from_pretrained(
+                "bert-base-uncased",  # Use the 12-layer BERT model, with an uncased vocab.
+                num_labels=2,  # The number of output labels--2 for binary classification.
+                # You can increase this for multi-class tasks.
+                output_attentions=False,  # Whether the model returns attentions weights.
+                output_hidden_states=False,  # Whether the model returns all hidden-states.
+            )
+            self.model_pretrained.cuda()
+
+        def tokenize_text(self, text):
+            encoded_dict = self.tokenizer(
+                text,  # Sentence to encode.
+                truncation=True,
+                add_special_tokens=True,  # Add '[CLS]' and '[SEP]'
+                max_length=self.MAX_LENGTH,  # Pad & truncate all sentences.
+                #pad_to_max_length=True,
+                return_attention_mask=True,  # Construct attn. masks.
+                return_tensors='pt',  # Return pytorch tensors.
+            )
+            # Add the encoded sentence to the list.
+            input_id = encoded_dict['input_ids']
+
+            # And its attention mask (simply differentiates padding from non-padding).
+            attention_mask = encoded_dict['attention_mask']
+            x = torch.stack((input_id,attention_mask),dim=2)
+            #x = torch.squeeze(x,dim=0)
+            return x
+
+        def get_embeddings(self, data):
+            bert_outputs = []
+            for each in data:
+                # print(each)
+                x = self.tokenize_text(each)
+                # print(x.shape)
+                b_input_id = x[:,:,0]
+                b_input_mask = x[:,:,1]
+
+
+                b_input_id = b_input_id.cuda()
+                b_input_mask = b_input_mask.cuda()
+
+                with torch.no_grad():
+                    bert_output = self.model_pretrained.distilbert(b_input_id,
+                                                                   # token_type_ids=None,
+                                                                   attention_mask=b_input_mask)
+                    bert_output_matrtix = bert_output[0].permute((0,2,1))
+                    m = nn.AvgPool1d(bert_output_matrtix.shape[2],stride=bert_output_matrtix.shape[2])
+                    bert_embedding = m(bert_output_matrtix).permute((0,2,1)).squeeze(0).squeeze(0).cpu()
+                bert_outputs.append(bert_embedding)
+            return torch.stack(bert_outputs)
+                # print(bert_output)
+
+        def extract_feature(self, data):
+            return self.get_embeddings(data)
+
+
 class Phi:
     def __init__(self, extractor):
-        #extractor should be a trained Extractor object
+        # extractor should be a trained Extractor object
         self.extractor = extractor
 
     def get_z_features(self, dataloader, domainbed=False):
-        self.extractor.model.eval()
+        # self.extractor.model.eval()
         with torch.no_grad():
             for i, chunk in tqdm(enumerate(dataloader)):
                 data = chunk[0]
                 target = chunk[1]
-                print(data.shape)
-                print(target.shape)
-                exit()
-                data = data.to(device)
-                target = target.to(device)
+                # print(target)
+                # print(data.shape)
+                # print(target.shape)
+                # exit()
+                try:
+                    data = data.to(device)
+                    target = target.to(device)
+                except:
+                    data = data
+                    target = target
+
                 z = self.extractor.model.extract_feature(data)
-                data_matrix = torch.hstack((z, target.view(-1,1)))
+                #print(z.shape)
+                data_matrix = torch.hstack((z, target.view(-1, 1)))
                 if i == 0:
                     features = np.zeros((1, data_matrix.shape[1]))
                 features = np.vstack((features, data_matrix.detach().cpu().numpy()))
             features = np.delete(features, 0, 0)
             if self.extractor.post_processor:
-                X_processed, feature_mapping, components = self.extractor.post_processor(features[:, :-1], features[:, -1])
-                features_projected = np.hstack((X_processed, features[:, -1].reshape(-1,1)))
+                X_processed, feature_mapping, components = self.extractor.post_processor(features[:, :-1],
+                                                                                         features[:, -1])
+                features_projected = np.hstack((X_processed, features[:, -1].reshape(-1, 1)))
             return features, features_projected, feature_mapping, components
-    
+
