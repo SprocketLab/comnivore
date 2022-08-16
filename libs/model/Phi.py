@@ -14,7 +14,9 @@ from transformers import BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertForSequenceClassification
 from transformers import DistilBertTokenizerFast
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import CLIPTokenizer, CLIPTextModel
 
+from transformers import BertTokenizer, BertForSequenceClassification, BertModel
 
 from sklearn.decomposition import PCA
 from sklearn import datasets, cluster
@@ -323,16 +325,22 @@ class Extractor_BERT:
 
     class Bert_Model:
         def __init__(self):
-            self.tokenizer = DistilBertTokenizerFast.from_pretrained('bert-base-uncased', do_lower_case=True)
-            self.MAX_LENGTH = 256
-            self.model_pretrained = DistilBertForSequenceClassification.from_pretrained(
-                "bert-base-uncased",  # Use the 12-layer BERT model, with an uncased vocab.
-                num_labels=2,  # The number of output labels--2 for binary classification.
-                # You can increase this for multi-class tasks.
-                output_attentions=False,  # Whether the model returns attentions weights.
-                output_hidden_states=False,  # Whether the model returns all hidden-states.
-            )
-            self.model_pretrained.cuda()
+            # self.tokenizer = DistilBertTokenizerFast.from_pretrained('bert-base-uncased', do_lower_case=True)
+            # self.MAX_LENGTH = 256
+            # self.model_pretrained = DistilBertForSequenceClassification.from_pretrained(
+            #     "bert-base-uncased",  # Use the 12-layer BERT model, with an uncased vocab.
+            #     num_labels=2,  # The number of output labels--2 for binary classification.
+            #     # You can increase this for multi-class tasks.
+            #     output_attentions=False,  # Whether the model returns attentions weights.
+            #     output_hidden_states=False,  # Whether the model returns all hidden-states.
+            # )
+            # self.model_pretrained.cuda()
+
+            # self.model = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32")
+            # self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32",max_length=300)
+            #
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+            self.bert_model = BertModel.from_pretrained("bert-base-uncased").cuda()
 
         def tokenize_text(self, text):
             encoded_dict = self.tokenizer(
@@ -377,8 +385,32 @@ class Extractor_BERT:
             return torch.stack(bert_outputs)
                 # print(bert_output)
 
+        def clip_embedding(self,data):
+            bert_outputs = []
+            for each in data:
+                # print(each)
+
+                inputs = self.tokenizer(each, return_tensors="pt")
+
+                #print(inputs)
+                for each in inputs:
+                    inputs[each] = inputs[each].cuda()
+                with torch.no_grad():
+                    outputs = self.bert_model(**inputs)
+                    text_feats = outputs[0].data.cpu().detach()
+                    # Stext_feats = bert_output[0].cpu().squeeze(0)
+                    text_feats = text_feats.permute((0,2,1))
+                    #text_feats = text_feats.transpose(0, 1)
+
+                    m = nn.AvgPool1d(text_feats.shape[2], stride=text_feats.shape[2])
+                    bert_embedding = m(text_feats).permute((0, 2, 1)).squeeze(0).squeeze(0).cpu()
+                    bert_outputs.append(bert_embedding)
+                    # print(bert_embedding.shape)
+                    # exit()
+            return torch.stack(bert_outputs)
         def extract_feature(self, data):
-            return self.get_embeddings(data)
+            return self.clip_embedding(data)
+            #return self.get_embeddings(data)
 
 
 class Phi:

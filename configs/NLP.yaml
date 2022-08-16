@@ -8,13 +8,13 @@ data:
     feature_path: BERT/2_class_FA_CLEAN
     load_path: ./artifacts/extracted_features/CivilComments/BERT/2_class_FA_CLEAN
     n_orig_features: 769
-    n_pac_features: 6
+    n_pac_features: 11
     tasks: ["orig",'mask']
 
 extraction_pipeline:
   reshape_size: 224
   extraction_batch_size: 128
-  z_hidden: 5
+  z_hidden: 10
   extractor_model: 'BERT'
 
 model:
