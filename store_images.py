@@ -24,7 +24,7 @@ def save_images_and_get_metadata(dataloader, split):
             img_tensor = torch.squeeze(img_tensor)
             image_id += 1
             img = transform(img_tensor)
-            image_path = os.path.join(store_path, f"img_{image_id}.png")
+            image_path = os.path.join(store_path, f"img_{image_id}_{split}.png")
             img.save(image_path)
             metadata_df["image_path"].append(image_path)
             metadata_df["label"].append(labels[img_idx])
