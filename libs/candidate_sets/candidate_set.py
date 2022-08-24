@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 class Candidate_Set:
-    def __init__(self, dataset_name, reshape_size, batch_size):
+    def __init__(self, dataset_name, reshape_size=(224,224), batch_size=128):
         self.dataset_name = dataset_name
         self.reshape_size = reshape_size
         self.batch_size = batch_size

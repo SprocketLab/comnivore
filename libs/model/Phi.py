@@ -12,9 +12,7 @@ from torch.autograd import Variable
 from transformers import CLIPProcessor, CLIPVisionModel
 
 from sklearn.decomposition import PCA
-from sklearn import datasets, cluster
-
-from torch.utils.data import TensorDataset, DataLoader, Dataset
+from sklearn import cluster
 
 cuda = True if torch.cuda.is_available() else False
 FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor

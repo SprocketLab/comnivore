@@ -4,9 +4,10 @@ from torch.optim import SGD, Adam, lr_scheduler
 from torch.utils.data import TensorDataset, DataLoader
 from torch.autograd import Variable
 import torch.nn.functional as F
-from libs.utils.wilds_utils import WILDS_utils
 from tqdm import tqdm
 import copy
+from torch import nn
+import torchvision
 
 root_dir = "wilds_data"
 cuda = True if torch.cuda.is_available() else False
@@ -166,8 +167,8 @@ class CausalClassifier:
     def train(self, model, trainloader, epochs=30, lr = 1e-3, verbose=False, l2_penalty=0.1, valdata=None, metadata_val=None, batch_size=32,\
         evaluate_func=None, log_freq=50, tune_by_metric='acc_wg'):
         # optimizer = SGD(model.parameters(), lr, momentum=0.9)
-        optimizer = Adam(model.parameters(), lr, weight_decay=1.e-5)
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, len(trainloader), eta_min=0)
+        optimizer = Adam(model.parameters(), lr, weight_decay=1.e-3)
+        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, len(trainloader), eta_min=1.e-8)
         if cuda:
             model = model.cuda()
         model.train()
@@ -195,14 +196,11 @@ class CausalClassifier:
                 if verbose:
                     print('Epoch {}: train loss: {} accuracy{}'.format(epoch, loss.item(), float(correct*100) / float(self.batch_size*(batch_idx+1))))
                 # Backward pass
-                l1_weight = 0
                 l2_weight = l2_penalty
                 parameters = []
                 for parameter in model.parameters():
                     parameters.append(parameter.view(-1))
-                l1 = l1_weight * model.compute_l1_loss(torch.cat(parameters))
                 l2 = l2_weight * model.compute_l2_loss(torch.cat(parameters))
-                loss += l1
                 loss += l2
                 loss.backward()
                 optimizer.step()
@@ -225,6 +223,7 @@ class CausalClassifier:
     def features_to_dataloader(self, data, batch_size, nodes_to_train=None, shuffle=True, generator=None):
         if nodes_to_train is None:
             nodes_to_train = self.nodes_to_train
+        
         X = data[:, nodes_to_train]
         y = data[:, -1]
         tensor_x = torch.Tensor(X) # transform to torch tensor
@@ -232,26 +231,13 @@ class CausalClassifier:
         my_dataset = TensorDataset(tensor_x,tensor_y) # create your datset
         my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator)
         return my_dataloader, X, y
-
-    def train_causal_classifier(self, model, train_data, nodes_to_train=None, batch_size=64, lr=1e-3, epochs=20, verbose=False):
-        if nodes_to_train is None:
-            nodes_to_train = self.nodes_to_train
-        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, nodes_to_train)
-        self.batch_size = batch_size
-        if len(self.nodes_to_train) > 0:
-            model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
-            self.model = self.train(model, trainloader, epochs=epochs, lr=lr, verbose=verbose)
-            return self.model
-        else:
-            print("G is disconnected graph")
-            self.model = None
-            return None
         
     def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, \
         verbose=False, n_layers=2, l2=0.1, dropout=0.1, valdata=None, metadata_val=None, generator=None, evaluate_func=None, log_freq=50,
         tune_by_metric='acc_wg'):
+        
         self.nodes_to_train = [i for i in range(train_data.shape[1]-1)]
-        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train,generator=generator)
+        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train, generator=generator)
         self.batch_size = batch_size
 
         input_size = dataset.shape[1]
@@ -443,3 +429,82 @@ class WeightedCausalClassifier:
         # print("Test accuracy top1:{:.3f}% ".format( float(correct*100) / (len(testloader)*self.batch_size)))
         return np.asarray(y_preds), np.asarray(labels), np.vstack(outputs)
 
+class Resnet50_Extractor(nn.Module):
+    def __init__(self, model):
+        super(Resnet50_Extractor, self).__init__()
+        # self.features = nn.Sequential(*list(model.children())[:-1])
+        self.classifier = nn.Sequential(list(model.children())[-1])
+    
+    def forward(self, x):
+        # feat = self.features(x)
+        # feat = torch.squeeze(feat)
+        clf = self.classifier(x)
+        return clf
+    
+class PretrainedCausalClf(CausalClassifier):
+    def __init__(self, dataset_name, model_path):
+        super(CausalClassifier, self).__init__()
+        self.model = self.initialize_torchvision_model(
+                name='resnet50',
+                d_out=2,
+                **{})
+        self.model.eval()
+        model_path = f"/hdd2/dyah/wilds/logs/{dataset_name}_seed:0_epoch:best_model.pth"
+        state_dict = torch.load(model_path)['algorithm']
+        state_dict = self.modify_keys(state_dict)
+        self.model.load_state_dict(state_dict)
+        self.model = Resnet50_Extractor(self.model)
+        self.model.cuda()
+    
+    def modify_keys(self, state_dict):
+        new_state_dict = {}
+        for old_key in state_dict:
+            new_key = old_key[6:]
+            new_state_dict[new_key] = state_dict[old_key]
+        return new_state_dict
+    
+    def add_zeros_to_features(self, features, nodes_to_train, n_feats_orig):
+        filled_features = np.zeros((features.shape[0], n_feats_orig))
+        for i, node_id in enumerate(nodes_to_train):
+            # print("NODE ID", node_id, "i", i)
+            filled_features[:, node_id] = features[:, i]
+        filled_features[:, -1] = features[:, -1]
+        return filled_features
+    
+    def infer(self, features, nodes_to_train, n_feats_orig):
+        # print("N FEATS ORIG", n_feats_orig)
+        # print("BEFORE", features.shape)
+        if features.shape[1] < n_feats_orig:
+            # print("HERE")
+            features = self.add_zeros_to_features(features, nodes_to_train, n_feats_orig)
+        # print("AFTER", features.shape)
+        preds, labels, _ = self.evaluate(self.model, features, nodes_to_train=[i for i in range(features.shape[1]-1)], batch_size=64)
+        return preds, labels
+    
+    def initialize_torchvision_model(self, name, d_out, **kwargs):
+        # get constructor and last layer names
+        if name == 'wideresnet50':
+            constructor_name = 'wide_resnet50_2'
+            last_layer_name = 'fc'
+        elif name == 'densenet121':
+            constructor_name = name
+            last_layer_name = 'classifier'
+        elif name in ('resnet18', 'resnet34', 'resnet50', 'resnet101'):
+            constructor_name = name
+            last_layer_name = 'fc'
+        else:
+            raise ValueError(f'Torchvision model {name} not recognized')
+        # construct the default model, which has the default last layer
+        constructor = getattr(torchvision.models, constructor_name)
+        model = constructor(**kwargs)
+        # adjust the last layer
+        d_features = getattr(model, last_layer_name).in_features
+        if d_out is None:  # want to initialize a featurizer model
+            last_layer = Identity(d_features)
+            model.d_out = d_features
+        else: # want to initialize a classifier for a particular num_classes
+            last_layer = nn.Linear(d_features, d_out)
+            model.d_out = d_out
+        setattr(model, last_layer_name, last_layer)
+
+        return model

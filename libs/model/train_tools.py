@@ -2,29 +2,41 @@ import os
 from libs.model import *
 from libs.utils import *
 from libs.utils.logger import save_graph, log, set_log_path
-from libs.utils.metrics import shd
 
 import numpy as np
-import torch.nn.functional as F
 import pickle
-import networkx as nx
 from tqdm import tqdm
-import torch
 
-def get_samples_dict(load_path,n_orig_features,n_pca_features,tasks):
+def get_samples_dict(load_path, n_orig_features, n_pca_features=None, tasks=[]):
     samples_dict = {}
     for task in tasks:
         full_features = np.load(os.path.join(load_path, f"{task}_full_train_{n_orig_features}.npy"))
-        pca_features = np.load(os.path.join(load_path, f"{task}_pca_train_{n_pca_features}.npy"))
-        #pca_features[:, :-1] = pca_features[:, :-1] - np.mean(pca_features[:, :-1], axis=0)
-        samples_dict[task] = {
-            "full_features": full_features,
-            "pca_features": pca_features,
-            "G_estimates": []
-        }
-        with open(os.path.join(load_path,f'pca_feature_mapping_{task}_{n_pca_features-1}.pickle'), 'rb') as f:
-            pca_mapping = pickle.load(f)
-            samples_dict[task]['pca_feature_mapping'] = pca_mapping
+        if task == "irm":
+            test_features = np.load(os.path.join(load_path, f"{task}_full_test_{n_orig_features}.npy"))
+            val_features = np.load(os.path.join(load_path, f"{task}_full_val_{n_orig_features}.npy"))
+        else:
+            test_features = np.load(os.path.join(load_path, f"orig_full_test_{n_orig_features}.npy"))
+            val_features = np.load(os.path.join(load_path, f"orig_full_val_{n_orig_features}.npy"))
+        
+        if n_pca_features is not None:
+            pca_features = np.load(os.path.join(load_path, f"{task}_pca_train_{n_pca_features}.npy"))
+            samples_dict[task] = {
+                "full_features": full_features,
+                "pca_features": pca_features,
+                "G_estimates": [],
+                "valdata": val_features,
+                "testdata": test_features,
+            }
+            with open(os.path.join(load_path,f'pca_feature_mapping_{task}_{n_pca_features-1}.pickle'), 'rb') as f:
+                pca_mapping = pickle.load(f)
+                samples_dict[task]['pca_feature_mapping'] = pca_mapping
+        else:
+            pca_features = None
+            samples_dict[task] = {
+                "full_features": full_features,
+                "G_estimates": []
+            }
+        
     return samples_dict
 
 def run_notears_lfs(samples_dict,tasks,lf_func, lf_name, use_cpdag=False, log_graph = True):
@@ -65,44 +77,52 @@ def translate_pca_to_full(feature_map, pca_nodes):
             print(feature_map)
     return nodes_full
 
-def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_estimates=None, scale=False):
+def get_data_from_feat_label_array(samples_dict, G_estimates=None, scale=False):
     train_baseline = []
     val_baseline = []
     y_val = []
     test_baseline = []
     y_test = []
     pca_nodes = {}
+    all_train_nodes = {}
     if G_estimates is None:
         for task in tqdm(samples_dict):
             y_train = samples_dict[task]['full_features'][:,-1]
             task_data = samples_dict[task]['full_features'][:,:-1]
-            # if G_estimates is None:
+            
+            valdata = samples_dict[task]['valdata']
+            testdata = samples_dict[task]['testdata']
             train_baseline.append(task_data)
-            if valdata is not None:
-                val_baseline.append(valdata[:,:-1])
-                y_val = valdata[:,-1]
-            if testdata is not None:
-                test_baseline.append(testdata[:,:-1])
-                y_test = testdata[:,-1]
+            
+            val_baseline.append(valdata[:,:-1])
+            y_val = valdata[:,-1]
+            test_baseline.append(testdata[:,:-1])
+            y_test = testdata[:,-1]
+            nodes_to_train = list(np.arange(0, task_data.shape[1]))
+            all_train_nodes[task] = nodes_to_train
     else:
         for task_lf in G_estimates:
             feature_map = samples_dict[task_lf]['pca_feature_mapping']
             y_train = samples_dict[task_lf]['full_features'][:,-1]
             task_data = samples_dict[task_lf]['full_features'][:,:-1]
+            # if task_lf == 'irm':
+            valdata = samples_dict[task_lf]['valdata']
+            testdata = samples_dict[task_lf]['testdata']
             G = G_estimates[task_lf]
             causal_clf = CausalClassifier(G)
             selected_pca_nodes = causal_clf.nodes_to_train
             pca_nodes[task_lf] = selected_pca_nodes
             nodes_to_train = translate_pca_to_full(feature_map, selected_pca_nodes)
-            print("N NODES TO TRAIN", len(nodes_to_train))
+            all_train_nodes[task_lf] = nodes_to_train
+            log(F"N NODES TO TRAIN {len(nodes_to_train)}")
             if len(causal_clf.nodes_to_train) > 0:
                 train_baseline.append(np.take(task_data, nodes_to_train, axis=1))
-                if valdata is not None:
-                    val_baseline.append(np.take(valdata, nodes_to_train, axis=1))
-                    y_val = valdata[:,-1]
-                if testdata is not None:
-                    test_baseline.append(np.take(testdata, nodes_to_train, axis=1))
-                    y_test = testdata[:,-1]
+                
+                val_baseline.append(np.take(valdata[:,:-1], nodes_to_train, axis=1))
+                y_val = valdata[:,-1]
+            
+                test_baseline.append(np.take(testdata[:,:-1], nodes_to_train, axis=1))
+                y_test = testdata[:,-1]
             else:
                 continue
     if len(train_baseline) > 0:
@@ -122,7 +142,7 @@ def get_data_from_feat_label_array(samples_dict, valdata=None, testdata=None, G_
             test_baseline = scale_data(test_baseline)
         y_test = np.array(y_test)
         test_baseline = np.hstack((test_baseline, y_test.reshape(-1,1)))
-    return train_baseline, val_baseline, test_baseline, pca_nodes
+    return train_baseline, val_baseline, test_baseline, pca_nodes, all_train_nodes
 
 def scale_data(data):
     scaler = MinMaxScaler()
@@ -171,7 +191,16 @@ def test_baseline_nodes(pca_nodes, n_pca_features):
     if np.array(matches).all() == True:
         return True
     return False
-        
+
+def pretrained_model_inference(dataset_name, model_path=None, features=[], nodes_to_train=[], n_feats_orig=0, \
+    metadata=[], evaluate_func=None):
+    model = PretrainedCausalClf(dataset_name, model_path)
+    preds, labels = model.infer(features, nodes_to_train, n_feats_orig)
+    results_obj_test, results_str_test = evaluate_func(preds, labels, metadata)
+    log(f"{results_str_test}")
+    # accs['test'] = {k:v for k,v in results_obj_test.items()}
+    return results_obj_test
+    
 def test_duplicate_nodes(pca_nodes, cache_nodes):
     if len(cache_nodes) == 0:
         return False
@@ -198,4 +227,4 @@ def get_best_model_acc(eval_accs, tune_by='acc_wg'):
         if eval_accs[key]['val'][tune_by] > best_val_acc:
             best_val_acc = eval_accs[key]['val'][tune_by]
             best_key = key
-    return eval_accs[best_key]['val'][tune_by], eval_accs[best_key]['test'][tune_by]
+    return eval_accs[best_key]

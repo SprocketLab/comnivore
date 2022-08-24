@@ -9,7 +9,7 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/ColoredMNIST/CLIP/
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["orig", "bw"]
+    tasks: ["orig",]
 
 extraction_pipeline:
   reshape_size: 28
@@ -28,8 +28,9 @@ model:
 
 opt:
   epochs: 100
-  lr: 1.e-4
-  l2: 0.1
+  lr: 1.e-6
+  l2: 0.0
+  dropout: 0.5
   comnivore_v:
     all_negative_balance: [0.1,1,0.1]
     snorkel_ep: 500
@@ -46,4 +47,4 @@ pipeline:
   fused_causal: True
 
 utils:
-  log_freq: 20
+  log_freq: 5
