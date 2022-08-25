@@ -45,8 +45,8 @@ def transform_digit_color(imgs, labels, env):
     for label in env:
         label_mapping = env[label]
         images_with_label = imgs[labels==label,:,:,:].detach().cpu().numpy()
-        images_with_label[images_with_label<0] = -1
-        images_with_label[images_with_label>0] = 1
+        images_with_label[images_with_label<0] = -1.
+        images_with_label[images_with_label>0] = 1.
         background_pixels = np.argwhere((images_with_label<0))
         img_indexes = np.unique(background_pixels[:,0])
         for i_idx in img_indexes:
@@ -59,6 +59,25 @@ def transform_digit_color(imgs, labels, env):
                         img[channel, pixel[1], pixel[2]] = label_mapping[channel]
         imgs[labels==label,:,:,:] = torch.Tensor(images_with_label)
     return imgs
+
+def color_digit_random(imgs):
+    imgs = imgs.detach().cpu().numpy()
+    imgs[imgs<0] = -1.
+    imgs[imgs>0] = 1.
+    background_pixels = np.argwhere((imgs<0))
+    img_indexes = np.unique(background_pixels[:,0])
+    for i_idx in img_indexes:
+        random_color = list(np.random.choice(range(256), size=3))
+        random_color = inter_from_256(random_color)
+        zero_pixels = np.delete(background_pixels[np.argwhere(background_pixels[:,0]==i_idx)].squeeze(),0,axis=1)
+        for pixel in zero_pixels:
+            zero_channels = np.where((zero_pixels[:,1] == pixel[1]) & (zero_pixels[:,2] == pixel[2]))[0]
+            if zero_channels.shape[0] == 3:
+                for channel in range(zero_channels.shape[0]):
+                    imgs[i_idx, :, :, :][channel, pixel[1], pixel[2]] = random_color[channel]
+    imgs = torch.Tensor(imgs)
+    return imgs
+    
 
 def generate_random_environment(digits_to_store=[]):
     #create random mapping of: label: random 2 out of 3 channels {0,1,2}, values {0,1}
