@@ -36,12 +36,11 @@ class COmnivore_V:
         label_node = n_pca_features -1
         n_features = n_pca_features - 1
         edge_predictions = []
+        edge_probs = []
         n_tasks = len(self.tasks)
         for feat_idx in range(n_features):
             node = feat_idx
             L_edge = np.zeros((n_tasks, m))
-            # for sample_idx, task in tqdm(enumerate(self.G_estimates)):
-                # lfs = [t[1] for t in G_estimates]
             for lf_idx, lf_name in enumerate(self.lf_names):
                 for task_idx, task in enumerate(self.tasks):
                     lf_g_hat = self.G_estimates[lf_name][task]
@@ -63,12 +62,17 @@ class COmnivore_V:
                 progress_bar=False
             )
             preds = triplet_model.predict(L_edge)
+            proba = triplet_model.predict_proba(L_edge)
             edge_predictions.append(preds.flatten())
+            edge_probs.append(proba[:,1].flatten())
         edge_predictions = np.vstack(edge_predictions) # n_features x n_task
+        edge_probs = np.vstack(edge_probs)
         g_hats = self.get_g_hat_from_edge_preds(edge_predictions)
-        return g_hats
+        return g_hats, edge_probs
 
-    def fuse_estimates(self, cb, n_pca_features):
-        g_hats_edge = self.get_ws_edge_prediction(cb, n_pca_features)
-        return g_hats_edge
-        # g_hat_accs = self.get_g_hat_preds(g_hats_edge)
+    def fuse_estimates(self, cb, n_pca_features, return_probs=False):
+        g_hats_edge, edge_probs = self.get_ws_edge_prediction(cb, n_pca_features)
+        if not return_probs:
+            return g_hats_edge
+        else:
+            return g_hats_edge, edge_probs

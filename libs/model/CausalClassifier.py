@@ -138,6 +138,7 @@ class CausalClassifier:
 
     def features_to_dataloader(self, data, batch_size, nodes_to_train=None, shuffle=True, generator=None):
         if nodes_to_train is None:
+            self.nodes_to_train = [i for i in range(data.shape[1]-1)]
             nodes_to_train = self.nodes_to_train
         
         X = data[:, nodes_to_train]

@@ -9,7 +9,7 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/Synthetic_ColoredMNIST/CLIP/
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["bw",]
+    tasks: ["orig", "bw",]
 
 extraction_pipeline:
   reshape_size: 28

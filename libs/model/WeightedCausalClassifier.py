@@ -16,14 +16,17 @@ class WeightedCausalClassifier(CausalClassifier):
         super(WeightedCausalClassifier, self).__init__()
         pass
 
-    def get_points_weights_mask_once(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20,):
+    def get_points_weights_mask_once(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1):
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
-        model = self.train(model, trainloader, epochs=epochs, lr=lr, regularize=True)
+        model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty)
         _, _, f_x = self.evaluate(model, train_data, batch_size)
         
         points_weights = np.ones((train_data.shape[0], 1))
         causal_feature_idxs = np.argwhere(np.array(feature_weights) > 0.5).flatten()
+        print(len(feature_weights))
+        # print("causal_feature_idxs", causal_feature_idxs)
+        print("train_data", train_data.shape)
         if len(causal_feature_idxs) > 0:
             print("CAUSAL FEATS LEN", len(causal_feature_idxs))
             masked_feats = np.copy(train_data)
