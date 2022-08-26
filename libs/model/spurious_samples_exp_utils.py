@@ -49,8 +49,11 @@ def get_features_weights(samples_dict, edge_probs, n_orig_features):
         feature_weights_all.extend(feature_weights_full.tolist())
     return feature_weights_all
 
-def get_points_weights(traindata, model, feature_weights, epochs=30, lr = 1e-3, l2_penalty=0.1,):
+def get_points_weights(traindata, model, feature_weights, epochs=30, lr = 1e-3, l2_penalty=0.1, evaluate_func=None, metadata_val=None,\
+    valdata=None, batch_size=64):
     weighted_clf = WeightedCausalClassifier()
-    points_weights = weighted_clf.get_points_weights_mask_once(traindata, model, feature_weights, epochs=epochs, lr=lr, l2_penalty=l2_penalty)
+    points_weights = weighted_clf.get_points_weights_mask_once(traindata, model, feature_weights, epochs=epochs, lr=lr, \
+                                                               l2_penalty=l2_penalty, evaluate_func=evaluate_func, metadata_val=metadata_val, \
+                                                                   valdata=valdata, batch_size=batch_size)
     all_points_weights = [1/p for p in points_weights.tolist()]
     return all_points_weights

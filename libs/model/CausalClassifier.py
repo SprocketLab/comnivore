@@ -6,7 +6,6 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from tqdm import tqdm
 import copy
-import torchvision
 
 root_dir = "wilds_data"
 cuda = True if torch.cuda.is_available() else False

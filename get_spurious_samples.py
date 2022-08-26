@@ -55,7 +55,7 @@ def main(args):
 
     lf_factory = LF()
     samples_dict = get_samples_dict(load_path,n_orig_features,n_pca_features,tasks)
-
+    metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
     metadata_test = np.load(os.path.join(load_path, "metadata_test.npy"))
     # testdata = np.load(os.path.join(load_path, f"orig_full_test_{n_orig_features}.npy"))
 
@@ -152,11 +152,12 @@ def main(args):
         
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
-            g_hats, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
+            _, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
             feature_weights = get_features_weights(samples_dict, edge_probs, n_orig_features)
             
             traindata, valdata_processed, testdata_processed = get_data(samples_dict)
-            points_weights = get_points_weights(traindata, model, feature_weights, epochs, lr, l2)
+            points_weights = get_points_weights(traindata, model, feature_weights, epochs, lr, l2, evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata_processed, \
+                batch_size=bs)
             
             # if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
             #     eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
@@ -198,7 +199,7 @@ if __name__ == '__main__':
     parser.add_argument('-s_ep', '--snorkel_epochs', type=int, help='snorkel epochs')
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
     args = parser.parse_args()
-    # baseline_accs, best_model_eval = main(args)
+    main(args)
     # if baseline_accs is not None:
     #     print_result(baseline_accs, "baseline")
     # if best_model_eval is not None:

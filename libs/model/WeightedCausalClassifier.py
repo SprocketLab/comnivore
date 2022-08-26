@@ -5,6 +5,7 @@ from .CausalClassifier import CausalClassifier
 from torch.optim import SGD, Adam, lr_scheduler
 from torch.autograd import Variable
 import torch.nn.functional as F
+from tqdm import tqdm
 
 cuda = True if torch.cuda.is_available() else False
 
@@ -16,22 +17,22 @@ class WeightedCausalClassifier(CausalClassifier):
         super(WeightedCausalClassifier, self).__init__()
         pass
 
-    def get_points_weights_mask_once(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1):
+    def get_points_weights_mask_once(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
+        evaluate_func=None, metadata_val=None, valdata=None):
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
-        model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty)
+        
+        model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
+                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,batch_size=batch_size)
         _, _, f_x = self.evaluate(model, train_data, batch_size)
         
         points_weights = np.ones((train_data.shape[0], 1))
         causal_feature_idxs = np.argwhere(np.array(feature_weights) > 0.5).flatten()
-        print(len(feature_weights))
-        # print("causal_feature_idxs", causal_feature_idxs)
-        print("train_data", train_data.shape)
+        
         if len(causal_feature_idxs) > 0:
-            print("CAUSAL FEATS LEN", len(causal_feature_idxs))
             masked_feats = np.copy(train_data)
             masked_feats[:,causal_feature_idxs] = 0
-            # np.random.shuffle(masked_feats[:,causal_feature_idxs],)
+            
             _, _, f_x_accent = self.evaluate(model, masked_feats, batch_size)
             f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
 
@@ -71,15 +72,15 @@ class WeightedCausalClassifier(CausalClassifier):
             regular_loss = regular_loss_f(y_pred, y_true)
             return regular_loss
 
-    def train(self, model, trainloader, epochs=10, lr = 1e-3, verbose=False, l2_weight = 0.1):
-        optimizer = SGD(model.parameters(), lr, momentum=0.2)
+    def train(self, model, trainloader, epochs=10, lr = 1e-3, verbose=False, l2_weight = 0.1, evaluate_func=None, \
+        metadata_val=None, valdata=None, batch_size=64):
+        optimizer = SGD(model.parameters(), lr, momentum=0.8)
         if cuda:
             model = model.cuda()
         model.train()
-        for epoch in range(epochs):
-            correct = 0
-            for batch_idx, chunk in enumerate(trainloader):
-                # print(chunk)
+        for epoch in tqdm(range(epochs)):
+            
+            for _, chunk in enumerate(trainloader):
                 if len(chunk) == 3:
                     data, target, weights = chunk
                 else:
@@ -100,9 +101,8 @@ class WeightedCausalClassifier(CausalClassifier):
                 loss = self.new_loss(y_pred.squeeze(), target, weights)
                 # Compute Loss
                 predicted = torch.max(y_pred.data, 1)[1] 
-                correct += (predicted == target).sum()
-                if verbose:
-                    print('Epoch {}: train loss: {:.3f} accuracy{:.3f}'.format(epoch, loss.item(), float(correct*100) / float(self.batch_size*(batch_idx+1))))
+                
+        
                 # Backward pass
                 parameters = []
                 for parameter in model.parameters():
@@ -111,6 +111,10 @@ class WeightedCausalClassifier(CausalClassifier):
                 loss += l2
                 loss.backward()
                 optimizer.step()
+            if verbose and epoch%10 == 0:
+                outputs_val, labels_val, _ = self.evaluate(model, valdata, batch_size)
+                _, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
+                print(f"Epoch: {epoch} \n {results_str_val}")
         return model
     
     def train_end_model(self, model, train_data, points_weights, batch_size=64, lr=1e-3, epochs=20, l2_weight=0.1, 
