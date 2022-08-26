@@ -7,13 +7,12 @@ from .domainbed_candidate import DomainBed_Candidate_Set
 
 
 class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
-    def __init__(self, reshape_size, batch_size):
+    def __init__(self, batch_size):
         self.dataset_orig = vars(datasets)["ColoredMNIST"](domainbed_const.DATA_DIR,
                                                domainbed_const.TEST_ENVS, {'data_augmentation': None})
 
         super(ColoredMNIST_Candidate_Set, self).__init__(self.dataset_orig, "ColoredMNIST")
         self.batch_size = batch_size
-        self.reshape_size = (reshape_size, reshape_size)
     
     def get_loader_dict(self):
         return {
@@ -47,12 +46,10 @@ class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
         )
         dataset = vars(datasets)["ColoredMNIST"](domainbed_const.DATA_DIR,
                                                domainbed_const.TEST_ENVS, {'data_augmentation': None}, extra_transform)
-        # super().set_dataset(dataset)
         trainloader_cmap = self.get_train_dataloader(
             dataset,
             self.batch_size,
         )
-        # super().set_dataset(self.dataset)
         return trainloader_cmap
     
     def get_train_loader_bw(self):
@@ -61,13 +58,11 @@ class ColoredMNIST_Candidate_Set(DomainBed_Candidate_Set):
         )
         dataset = vars(datasets)["ColoredMNIST"](domainbed_const.DATA_DIR,
                                                domainbed_const.TEST_ENVS, {'data_augmentation': None}, extra_transform)
-        # super().set_dataset(dataset)
         trainloader_bw = self.get_train_dataloader(
             dataset,
             self.batch_size,
             
         )
-        # super().set_dataset(self.dataset)
         return trainloader_bw
     
     def get_test_loader(self):

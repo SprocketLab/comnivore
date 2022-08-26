@@ -11,8 +11,6 @@ from datetime import datetime
 
 import numpy as np
 
-from libs.datasets import DATASETS, WILDS_DATASETS, DOMAINBED_DATASETS
-
 def get_model_dict():
     return {
         'CLIP': Extractor_CLIP,

@@ -1,4 +1,5 @@
-from .CausalClassifier import CausalClassifier, MLP, CLIPMLP
+from .CausalClassifier import CausalClassifier
+from .model_backbone import MLP, CLIPMLP
 
 
 def select_model(model):

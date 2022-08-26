@@ -114,6 +114,8 @@ class Convert_to_BW(object):
     def __call__(self, image):
         image = np.asarray(image)
         image = self.convert_to_BW(image)
+        if len(image.shape) < 3:
+            image = np.stack((image, image, image))
         return image
     
     def _get_name(self):

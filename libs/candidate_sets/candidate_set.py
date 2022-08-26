@@ -2,6 +2,7 @@ from .waterbirds_candidate import Waterbirds_Candidate_Set
 from .multiclass_domainbed_candidate import MultiClassDomainBed
 from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
 from .iwildcam_candidate import IWildCam_Candidate_Set
+from .synthetic_coloredmnist_candidate import Synthetic_ColoredMNIST_Candidate_Set
 from libs.model import *
 from tqdm import tqdm
 
@@ -25,7 +26,10 @@ class Candidate_Set:
         elif dataset_name == 'PACS':
             return MultiClassDomainBed(self.reshape_size, self.batch_size, 'PACS')
         elif dataset_name == 'ColoredMNIST':
-            return ColoredMNIST_Candidate_Set(self.reshape_size, self.batch_size)
+            return ColoredMNIST_Candidate_Set(self.batch_size)
+        elif dataset_name == "Synthetic_ColoredMNIST":
+            return Synthetic_ColoredMNIST_Candidate_Set(self.batch_size)
+            
     
     def get_all_train_loader_by_tasks(self, tasks):
         loaders = []

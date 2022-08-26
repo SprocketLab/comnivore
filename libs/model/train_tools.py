@@ -1,5 +1,5 @@
 import os
-from libs.model import *
+from libs.model import CausalClassifier, PretrainedCausalClf, MLP, CLIPMLP
 from libs.utils import *
 from libs.utils.logger import save_graph, log, set_log_path
 

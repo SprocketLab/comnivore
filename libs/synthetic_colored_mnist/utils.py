@@ -84,7 +84,7 @@ def save_images_and_get_metadata(images, labels, split, save_dir):
         os.makedirs(save_dir)
     image_id = 0
     transform = T.ToPILImage()
-    metadata_df = {"image_path": [], "label": [], "split": []}
+    metadata_df = {"image_path": [], "label": []}
     labels = labels.detach().cpu().numpy()
     for img_idx in range(images.shape[0]):
         img_tensor = images[img_idx, :, :, :]
@@ -95,7 +95,6 @@ def save_images_and_get_metadata(images, labels, split, save_dir):
         img.save(image_path)
         metadata_df["image_path"].append(image_path)
         metadata_df["label"].append(int(labels[img_idx]))
-        metadata_df["split"].append(split)
     return metadata_df
 
 def save_env_as_tensor(img, labels, env_num, store_dir, mode="train", suffix=""):
