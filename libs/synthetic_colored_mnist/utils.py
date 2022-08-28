@@ -78,24 +78,33 @@ def show_random_images(images):
             i+=1
     plt.setp(plt.gcf().get_axes(), xticks=[], yticks=[]);
     plt.show()
-    
-def save_images_and_get_metadata(images, labels, split, save_dir):
+
+def get_metadata(image_paths, labels, split, random):
+    metadata_ = {
+        'image_path': image_paths, 
+        'label': labels
+    }
+    metadata_['split'] = [split for i in range(len(metadata_['label']))]
+    metadata_['random'] = [random for i in range(len(metadata_['label']))]
+    return pd.DataFrame(metadata_)
+
+def save_images(images, labels, split, save_dir):
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
     image_id = 0
     transform = T.ToPILImage()
-    metadata_df = {"image_path": [], "label": []}
     labels = labels.detach().cpu().numpy()
+    image_paths = []
     for img_idx in range(images.shape[0]):
+        label = labels[img_idx]
         img_tensor = images[img_idx, :, :, :]
         img_tensor = torch.squeeze(img_tensor)
         image_id += 1
         img = transform(img_tensor)
-        image_path = os.path.join(save_dir, f"img_{image_id}_{split}.png")
+        image_path = os.path.join(save_dir, f"{label}_{split}_{image_id}.png")
         img.save(image_path)
-        metadata_df["image_path"].append(image_path)
-        metadata_df["label"].append(int(labels[img_idx]))
-    return metadata_df
+        image_paths.append(image_path)
+    return image_paths
 
 def save_env_as_tensor(img, labels, env_num, store_dir, mode="train", suffix=""):
     if len(suffix) > 0:

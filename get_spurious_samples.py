@@ -30,7 +30,10 @@ def main(args):
     # load tasks params
     dataset_cfg = cfg['data']['dataset']
     dataset_name = dataset_cfg['dataset_name']
-    load_path = dataset_cfg['load_path']
+    if 'feature_path' in args and not isinstance(args.feature_path,type(None)):
+        load_path = args.feature_path
+    else:
+        load_path = dataset_cfg['load_path']
     
     n_orig_features = dataset_cfg['n_orig_features']
     if 'n_pac_features' in dataset_cfg:
@@ -46,9 +49,10 @@ def main(args):
     # create log folder
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if 'log_path' in args and args.log_path is not None:
-        log_path = os.path.join('log',args.log_path,dataset_name, fuser,timestamp)
+        log_path = os.path.join('log',dataset_name,args.log_path,timestamp)
     else:
-        log_path = os.path.join('log', dataset_name, fuser, timestamp)
+        log_path = os.path.join('log', dataset_name, timestamp)
+    
     ensure_path(log_path)
     set_log_path(log_path)
 
@@ -57,10 +61,8 @@ def main(args):
     samples_dict = get_samples_dict(load_path,n_orig_features,n_pca_features,tasks)
     metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
     metadata_test = np.load(os.path.join(load_path, "metadata_test.npy"))
-    # testdata = np.load(os.path.join(load_path, f"orig_full_test_{n_orig_features}.npy"))
 
     metadata_val = np.load(os.path.join(load_path, "metadata_val.npy"))
-    # valdata = np.load(os.path.join(load_path, f"orig_full_val_{n_orig_features}.npy"))
 
     ##################################################################################
     # set up optimizer
@@ -82,10 +84,6 @@ def main(args):
 
     model_cfg = cfg['model']['output_model']
     model = select_model(model_cfg)
-
-    ##################################################################################
-    # load params for pipline
-    pipline = cfg['pipeline']
     
     evaluate_func = None
     if dataset_name in WILDS_DATASETS:
@@ -113,10 +111,6 @@ def main(args):
     else:
         log_freq = 20
     
-    if 'train' in cfg:
-        train = cfg['train']
-    else:
-        train = True
 
     active_lfs = cfg['model']['active_lfs']
     G_estimates = {}
@@ -135,6 +129,12 @@ def main(args):
     log("Training with fused causal estimates...")
     eval_accs_all = {}
     cache_nodes = []
+    if 'images_path' in args and not isinstance(args.images_path,type(None)):
+        images_path = args.images_path
+    else:
+        images_path = dataset_cfg['images_path']
+    n_save_images = utils_cfg['n_save_images']
+    csv_file = os.path.join(images_path, "metadata.csv")
     if fuser == 'COmnivore_V':
         COmnivore_params = opt['comnivore_v']
         all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
@@ -150,6 +150,8 @@ def main(args):
         log(f"SNORKEL PARAMS: lr {snorkel_lr} | ep {snorkel_ep}")
         COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
         
+        best_diff = 0
+        best_cb = 0
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             _, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
@@ -157,23 +159,16 @@ def main(args):
             
             traindata, valdata_processed, testdata_processed = get_data(samples_dict)
             points_weights = get_points_weights(traindata, model, feature_weights, epochs, lr, l2, evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata_processed, \
-                batch_size=bs)
+                batch_size=bs, log_freq=log_freq)
             
-            # if not test_duplicate_nodes(pca_nodes, cache_nodes) and len(traindata) > 0:
-            #     eval_accs = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test,rng, \
-            #                                 epochs, lr, bs, l2, dropout=dropout, model=model, n_layers=n_layers, \
-            #                                     evaluate_func=evaluate_func, \
-            #                                     log_freq=log_freq, tune_by_metric=tune_by_metric)
-            #     eval_accs_all[cb] = eval_accs
-            #     cache_nodes.append(pca_nodes)
-            # else:
-            #     print("Nodes cached.. skipping training")
-    
-    # best_model_eval = get_best_model_acc(eval_accs_all, tune_by=tune_by_metric)
-        
-    # return baseline_accs, best_model_eval
+            high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, images_path, metadata_train, n_store=n_save_images, \
+                                store_images=True, store_path=f"./spurious_samples_exp/{cb}")
+            
+            if diff > best_diff:
+                best_diff = diff
+                best_cb = cb
 
-    #################################################################################
+        log(f"BEST SEPARATION: {best_diff} CB: {cb}")
 
 def print_result(result_obj, mode="baseline"):
     if 'val' in result_obj:
@@ -198,10 +193,8 @@ if __name__ == '__main__':
     parser.add_argument('-s_lr', '--snorkel_lr', type=float, help='snorkel learning rate')
     parser.add_argument('-s_ep', '--snorkel_epochs', type=int, help='snorkel epochs')
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
+    parser.add_argument('-img_path', '--images_path', type=str, help='root images path', default=None)
+    parser.add_argument('-feat_path', '--feature_path', type=str, help='CLIP features path', default=None)
     args = parser.parse_args()
     main(args)
-    # if baseline_accs is not None:
-    #     print_result(baseline_accs, "baseline")
-    # if best_model_eval is not None:
-    #     print_result(best_model_eval, "ours")
     os._exit(os.EX_OK)

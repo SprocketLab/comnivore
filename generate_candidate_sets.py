@@ -39,7 +39,10 @@ def main(args):
     dataset_cfg = cfg['data']['dataset']
     dataset_name = dataset_cfg['dataset_name']
     root_path = dataset_cfg['root_path']
-    feature_path = dataset_cfg['feature_path']
+    if 'feature_path' in args and not isinstance(args.feature_path,type(None)):
+        feature_path = args.feature_path
+    else:
+        feature_path = dataset_cfg['feature_path']
     
     store_dir = os.path.join(root_path, dataset_name, feature_path)
     if not os.path.isdir(store_dir):
@@ -62,7 +65,15 @@ def main(args):
         z_hidden = extraction_config['z_hidden']
     
     environments = dataset_cfg['tasks']
-    candidate_set = Candidate_Set(dataset_name, extraction_reshape_size, extraction_bs)
+    if dataset_name == "Synthetic_ColoredMNIST":
+        assert 'images_path' in args or 'images_path' in dataset_cfg
+        if 'images_path' in args and not isinstance(args.images_path,type(None)):
+            images_path = args.images_path
+        else:
+            images_path = dataset_cfg['images_path']
+        candidate_set = Candidate_Set(dataset_name, extraction_reshape_size, extraction_bs, root_cmnist_path=images_path)
+    else:
+        candidate_set = Candidate_Set(dataset_name, extraction_reshape_size, extraction_bs)
     
     train_loaders = candidate_set.get_all_train_loader_by_tasks(environments)
     test_loader = candidate_set.get_test_loader()
@@ -105,6 +116,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', type=str, help='config file path', required=True)
     parser.add_argument('-z', '--z_hidden', type=int, help='hidden dimension for dimensionality reduction',)
+    parser.add_argument('-feat_path', '--feature_path', type=str, help='CLIP features path', default=None)
+    parser.add_argument('-img_path','--images_path', type=str, help='images path (for synthetic datasets only)', default=None)
     args = parser.parse_args()
     main(args)
     os._exit(os.EX_OK)

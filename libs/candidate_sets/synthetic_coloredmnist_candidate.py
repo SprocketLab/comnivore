@@ -8,22 +8,20 @@ from .transformation import Convert_to_BW
 from .CustomCompose import MyCompose
 import numpy as np
 
-class Synthetic_CMNIST_Dataset(Dataset):
-    def __init__(self, csv_file, root_dir, transform=None):
-        self.root_dir = root_dir
-        self.file_list = os.listdir(self.root_dir)
+class Synthetic_CMNIST_Dataset(Dataset): 
+    def __init__(self, csv_file, split, transform=None):
+        self.split = split
         self.transform = transform
         self.df = pd.read_csv(csv_file)
+        self.df = self.df[self.df['split']==split]
     
     def __len__(self):
-        return len(self.file_list)
+        return len(self.df)
     
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        img_path = self.file_list[idx]
-        img_path = os.path.join(self.root_dir, img_path)
-        
+        img_path = self.df.iloc[idx, 1]
         img = Image.open(img_path)
         if self.transform is not None:
             img = self.transform(img)
@@ -39,7 +37,7 @@ class Synthetic_CMNIST_Dataset(Dataset):
 
 
 class Synthetic_ColoredMNIST_Candidate_Set:
-    def __init__(self, batch_size, root_cmnist_path="/hdd2/dyah/coloredmnist_synthetic_spurious"):
+    def __init__(self, batch_size, root_cmnist_path):
         self.batch_size = batch_size
         self.root_cmnist_path = root_cmnist_path
         self.csv_path = os.path.join(self.root_cmnist_path, "metadata.csv")
@@ -52,7 +50,7 @@ class Synthetic_ColoredMNIST_Candidate_Set:
         }
         
     def get_train_loader_orig(self):
-        traindata = Synthetic_CMNIST_Dataset(self.csv_path, os.path.join(self.root_cmnist_path, "train"))
+        traindata = Synthetic_CMNIST_Dataset(self.csv_path, 0)
         trainloader_orig = DataLoader(traindata, batch_size=self.batch_size)
         return trainloader_orig
     
@@ -60,17 +58,17 @@ class Synthetic_ColoredMNIST_Candidate_Set:
         extra_transform = MyCompose(
             [Convert_to_BW()]
         )
-        traindata_bw = Synthetic_CMNIST_Dataset(self.csv_path, os.path.join(self.root_cmnist_path, "train"), extra_transform)
+        traindata_bw = Synthetic_CMNIST_Dataset(self.csv_path, 0, extra_transform)
         trainloader_bw = DataLoader(traindata_bw, batch_size = self.batch_size, shuffle=False)
         return trainloader_bw
     
     def get_test_loader(self):
-        testdata = Synthetic_CMNIST_Dataset(self.csv_path, os.path.join(self.root_cmnist_path, "test"))
+        testdata = Synthetic_CMNIST_Dataset(self.csv_path, 1)
         testloader = DataLoader(testdata, batch_size = self.batch_size, shuffle=False)
         return testloader
     
     def get_val_loader(self):
-        valdata = Synthetic_CMNIST_Dataset(self.csv_path, os.path.join(self.root_cmnist_path, "val"))
+        valdata = Synthetic_CMNIST_Dataset(self.csv_path, 2)
         valloader = DataLoader(valdata, batch_size = self.batch_size, shuffle=False)
         return valloader
     

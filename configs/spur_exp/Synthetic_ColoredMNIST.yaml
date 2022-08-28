@@ -9,17 +9,18 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/Synthetic_ColoredMNIST/CLIP/
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["orig", "bw",]
+    tasks: ["orig"]
+    images_path: "/hdd2/dyah/coloredmnist_synthetic_spurious"
 
 extraction_pipeline:
   reshape_size: 28
-  extraction_batch_size: 2560
+  extraction_batch_size: 1280
   z_hidden: 5
   extractor_model: 'CLIP'
 
 model:
   active_lfs:
-    notears: ['NoTears Sobolev']
+    notears: []
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: CLIPMLP
@@ -27,8 +28,8 @@ model:
   alpha: 2
 
 opt:
-  epochs: 100
-  lr: 1.e-6
+  epochs: 50
+  lr: 3.e-6
   l2: 0.0
   dropout: 0.25
   comnivore_v:
@@ -47,4 +48,7 @@ pipeline:
   fused_causal: True
 
 utils:
-  log_freq: 5
+  log_freq: 25
+  n_save_images: 20
+
+

@@ -18,12 +18,13 @@ class WeightedCausalClassifier(CausalClassifier):
         pass
 
     def get_points_weights_mask_once(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
-        evaluate_func=None, metadata_val=None, valdata=None):
+        evaluate_func=None, metadata_val=None, valdata=None, log_freq=20):
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
         
         model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
-                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,batch_size=batch_size)
+                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,\
+                               batch_size=batch_size, log_freq=log_freq)
         _, _, f_x = self.evaluate(model, train_data, batch_size)
         
         points_weights = np.ones((train_data.shape[0], 1))
@@ -39,10 +40,13 @@ class WeightedCausalClassifier(CausalClassifier):
             points_weights = f_x_diff_causal 
         return points_weights.flatten()
 
-    def get_points_weights(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20,):
+    def get_points_weights(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
+        evaluate_func=None, metadata_val=None, valdata=None, log_freq=20):
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
-        model = self.train(model, trainloader, epochs=epochs, lr=lr)
+        model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
+                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,\
+                               batch_size=batch_size, log_freq=log_freq)
         _, _, f_x = self.evaluate(model, train_data, batch_size)
         points_weights = np.zeros((train_data.shape[0],2))
         print("getting point weights...")
@@ -73,7 +77,7 @@ class WeightedCausalClassifier(CausalClassifier):
             return regular_loss
 
     def train(self, model, trainloader, epochs=10, lr = 1e-3, verbose=False, l2_weight = 0.1, evaluate_func=None, \
-        metadata_val=None, valdata=None, batch_size=64):
+        metadata_val=None, valdata=None, batch_size=64, log_freq=20):
         optimizer = SGD(model.parameters(), lr, momentum=0.8)
         if cuda:
             model = model.cuda()
@@ -111,7 +115,7 @@ class WeightedCausalClassifier(CausalClassifier):
                 loss += l2
                 loss.backward()
                 optimizer.step()
-            if verbose and epoch%10 == 0:
+            if verbose and epoch%log_freq == 0:
                 outputs_val, labels_val, _ = self.evaluate(model, valdata, batch_size)
                 _, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
                 print(f"Epoch: {epoch} \n {results_str_val}")
