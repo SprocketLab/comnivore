@@ -49,9 +49,9 @@ def main(args):
     # create log folder
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if 'log_path' in args and args.log_path is not None:
-        log_path = os.path.join('log',dataset_name,args.log_path,timestamp)
+        log_path = os.path.join('log','spurious_exp', dataset_name,args.log_path,timestamp)
     else:
-        log_path = os.path.join('log', dataset_name, timestamp)
+        log_path = os.path.join('log','spurious_exp', dataset_name, timestamp)
     
     ensure_path(log_path)
     set_log_path(log_path)
@@ -127,7 +127,8 @@ def main(args):
         G_estimates[lf] = run_classic_lfs(samples_dict, tasks,lf_factory.lf_dict['pycausal'], lf, False, pycausal=True)
 
     log("Training with fused causal estimates...")
-    eval_accs_all = {}
+    eval_accs_spur = {}
+    eval_accs_baselne = {}
     cache_nodes = []
     if 'images_path' in args and not isinstance(args.images_path,type(None)):
         images_path = args.images_path
@@ -154,21 +155,52 @@ def main(args):
         best_cb = 0
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
-            _, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
+            g_hats, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
             feature_weights = get_features_weights(samples_dict, edge_probs, n_orig_features)
             
-            traindata, valdata_processed, testdata_processed = get_data(samples_dict)
-            points_weights = get_points_weights(traindata, model, feature_weights, epochs, lr, l2, evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata_processed, \
-                batch_size=bs, log_freq=log_freq)
+            traindata, valdata_processed, testdata_processed, pca_nodes = get_data(samples_dict, g_hats)
             
-            high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, images_path, metadata_train, n_store=n_save_images, \
-                                store_images=True, store_path=f"./spurious_samples_exp/{cb}")
+            if test_duplicate_nodes(pca_nodes, cache_nodes) or len(traindata) == 0:
+                print("Nodes cached.. skipping training")
+                continue
+            points_weights = get_points_weights(traindata, model, feature_weights, epochs, lr, l2, evaluate_func=evaluate_func, \
+                                                metadata_val=metadata_val, valdata=valdata_processed, \
+                                                batch_size=bs, log_freq=log_freq)
+            
+            high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, images_path, metadata_train, 
+                                                                            n_store=n_save_images, store_images=False, store_path=None)
+            log(f"% SPURIOUS SAMPLES SEPARATION: {diff}")
+            log("TRAIN WITH NO SAMPLE WEIGHTS")
+            acc_baseline = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test, \
+                                    generator=rng,
+                                    points_weights=None, \
+                                    epochs=epochs, \
+                                    lr=lr, bs=bs, l2=l2, dropout=dropout, \
+                                    model=model, n_layers=n_layers,\
+                                    evaluate_func=evaluate_func, log_freq=log_freq, \
+                                    tune_by_metric=tune_by_metric, verbose=True)
+            log("TRAIN WITH SAMPLE WEIGHT")
+            acc_spur = train_and_evaluate_end_model(traindata, valdata_processed, metadata_val, testdata_processed, metadata_test, \
+                                    generator=rng, 
+                                    points_weights=points_weights, \
+                                    epochs=epochs, \
+                                    lr=lr, bs=bs, l2=l2, dropout=dropout,\
+                                    model=model, n_layers=n_layers,\
+                                    evaluate_func=evaluate_func, log_freq=log_freq, \
+                                    tune_by_metric=tune_by_metric, verbose=True)
+            eval_accs_spur[cb] = acc_spur
+            eval_accs_baselne[cb] = acc_baseline
+            cache_nodes.append(pca_nodes)
             
             if diff > best_diff:
                 best_diff = diff
                 best_cb = cb
 
-        log(f"BEST SEPARATION: {best_diff} CB: {cb}")
+        best_model_spur, best_cb_eval = get_best_model_acc(eval_accs_spur, tune_by=tune_by_metric, return_best_key=True)
+        best_model_base = get_best_model_acc(eval_accs_baselne, tune_by=tune_by_metric)
+        
+        log(f"BEST SEPARATION: {best_diff} CB: {best_cb}")
+        return best_model_spur,best_model_base
 
 def print_result(result_obj, mode="baseline"):
     if 'val' in result_obj:
@@ -196,5 +228,9 @@ if __name__ == '__main__':
     parser.add_argument('-img_path', '--images_path', type=str, help='root images path', default=None)
     parser.add_argument('-feat_path', '--feature_path', type=str, help='CLIP features path', default=None)
     args = parser.parse_args()
-    main(args)
+    spurious_accs, baseline_accs = main(args)
+    if baseline_accs is not None:
+        print_result(baseline_accs, "baseline")
+    if spurious_accs is not None:
+        print_result(spurious_accs, "weighted sample")
     os._exit(os.EX_OK)

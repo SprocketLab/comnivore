@@ -92,7 +92,6 @@ class CausalClassifier:
         best_val_perf = 0
         best_epoch = 0
         for epoch in tqdm(range(epochs)):
-            correct = 0
             for batch_idx, (data, target) in enumerate(trainloader):
                 if cuda:
                     data = data.cuda()
@@ -105,11 +104,6 @@ class CausalClassifier:
                 y_pred = F.log_softmax(y_pred, dim=1)
             
                 loss = self.new_loss(y_pred.squeeze(), target)
-                # Compute Loss
-                predicted = torch.max(y_pred.data, 1)[1] 
-                correct += (predicted == target).sum()
-                if verbose:
-                    print('Epoch {}: train loss: {} accuracy{}'.format(epoch, loss.item(), float(correct*100) / float(self.batch_size*(batch_idx+1))))
                 # Backward pass
                 l2_weight = l2_penalty
                 parameters = []
