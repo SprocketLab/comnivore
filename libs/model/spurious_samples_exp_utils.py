@@ -61,15 +61,48 @@ def get_features_weights(samples_dict, edge_probs, n_orig_features):
         feature_weights_all.extend(feature_weights_full.tolist())
     return feature_weights_all
 
-def get_points_weights(traindata, model, feature_weights, epochs=30, lr = 1e-3, l2_penalty=0.1, evaluate_func=None, metadata_val=None,\
-    valdata=None, batch_size=64, log_freq=20):
+def get_base_predictor(traindata, model, \
+                        feature_weights, epochs=30, \
+                        lr = 1e-3, l2_penalty=0.1, evaluate_func=None, 
+                        metadata_val=None,\
+                        valdata=None, batch_size=64, \
+                        log_freq=20):
+    weighted_clf = WeightedCausalClassifier()
+    base_predictor, f_x_base = weighted_clf.get_base_predictor(traindata, model, feature_weights, \
+                                                                epochs=epochs, lr=lr, \
+                                                               l2_penalty=l2_penalty, \
+                                                               evaluate_func=evaluate_func, \
+                                                               metadata_val=metadata_val, \
+                                                                valdata=valdata, batch_size=batch_size, \
+                                                                log_freq=log_freq)
+    return base_predictor, f_x_base
+                                    
+def get_points_weights_with_base_predictor(base_predictor, f_x, train_data, feature_weights, batch_size):
+    weighted_clf = WeightedCausalClassifier()
+    points_weights = weighted_clf.get_points_weights_with_base_predictor(base_predictor, f_x, train_data, feature_weights, batch_size)
+    if points_weights is not None:
+        points_weights = [1/p for p in points_weights.tolist()] ### try functions that make stuffs low twhen the weight are high
+        return points_weights
+    else:
+        return None #None is when all predicted edge weights are too small -- no causal features predicted
+
+def get_points_weights(traindata, model, \
+                        feature_weights, epochs=30, \
+                        lr = 1e-3, l2_penalty=0.1, evaluate_func=None, 
+                        metadata_val=None,\
+                        valdata=None, batch_size=64, \
+                        log_freq=20):
+
     weighted_clf = WeightedCausalClassifier()
     points_weights = weighted_clf.get_points_weights_mask_once(traindata, model, feature_weights, epochs=epochs, lr=lr, \
                                                                l2_penalty=l2_penalty, evaluate_func=evaluate_func, \
                                                                metadata_val=metadata_val, \
                                                                 valdata=valdata, batch_size=batch_size, log_freq=log_freq)
-    points_weights = [1/p for p in points_weights.tolist()]
-    return points_weights
+    if points_weights is not None:
+        points_weights = [1/p for p in points_weights.tolist()]
+        return points_weights, weighted_clf
+    else:
+        return None #None is when all predicted edge weights are too small -- no causal features predicted
 
 def store_spurious_images(store_path, files_to_copy):
     if not os.path.isdir(store_path):
@@ -77,6 +110,22 @@ def store_spurious_images(store_path, files_to_copy):
     for file in files_to_copy:
         filename = file.split(os.path.sep)[-1]
         shutil.copy(file, os.path.join(store_path, filename))
+
+def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, testdata, metadata_test, generator, \
+                            bs=32, evaluate_func=None,):
+    accs_ = {}
+    clf = WeightedCausalClassifier()
+    outputs_val, labels_val, _ = clf.evaluate(trained_model.best_chkpt, valdata, batch_size=bs)
+    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
+    log(f"Val \n {results_str_val}")
+    outputs_test, labels_test, _ = clf.evaluate(trained_model.best_chkpt, testdata, batch_size=bs)
+
+    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_test)
+
+    log(f"Test \n {results_str_test}")
+    accs_['val'] = {k:v for k,v in results_obj_val.items()}
+    accs_['test'] = {k:v for k,v in results_obj_test.items()}
+    return accs_
 
 def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test, generator, points_weights=[], \
                                 epochs=20, lr=1e-3, bs=32, l2=0.1, dropout=0.1, model=CLIPMLP, n_layers=2, \
@@ -95,7 +144,7 @@ def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, met
     outputs_val, labels_val, _ = clf.evaluate(clf.best_chkpt, valdata)
     results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
     log(f"Val \n {results_str_val}")
-    outputs_test, labels_test, _ = clf.evaluate(clf.model, testdata)
+    outputs_test, labels_test, _ = clf.evaluate(clf.best_chkpt, testdata)
 
     results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_test)
 
@@ -135,4 +184,6 @@ def group_and_store_images_by_weigts(point_weights, csv_file, train_images_path,
         return high_p_spur, low_p_spur, np.abs(high_p_spur-low_p_spur)
         
     
-    
+def analyze_weights(point_weights):
+    point_weights = np.array(point_weights)
+    log(f"Max: {np.amax(point_weights)} | Min: {np.amin(point_weights)} | Mean: {np.mean(point_weights)} | Median: {np.median(point_weights)}")

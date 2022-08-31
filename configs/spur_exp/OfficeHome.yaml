@@ -1,26 +1,25 @@
 data:
   num_workers: 8
-  batch_size: 64
+  batch_size: 32
 
   dataset:
-    dataset_name: Synthetic_ColoredMNIST
+    dataset_name: OfficeHome
     root_path: ./artifacts/extracted_features
     feature_path: CLIP/
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/Synthetic_ColoredMNIST/CLIP/
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/OfficeHome/CLIP/
     n_orig_features: 769
     n_pac_features: 6
     tasks: ["orig"]
-    images_path: "/hdd2/dyah/coloredmnist_synthetic_spurious"
 
 extraction_pipeline:
-  reshape_size: 28
-  extraction_batch_size: 1280
+  reshape_size: 224
+  extraction_batch_size: 128
   z_hidden: 5
   extractor_model: 'CLIP'
 
 model:
   active_lfs:
-    notears: []
+    notears: ['NoTears Sobolev']
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: CLIPMLP
@@ -31,9 +30,9 @@ opt:
   epochs: 50
   lr: 3.e-6
   l2: 0.0
-  dropout: 0.25
+  dropout: 0.5
   comnivore_v:
-    all_negative_balance: [0.1,1,0.1]
+    all_negative_balance: [0.1,1.0,0.1]
     snorkel_ep: 500
     snorkel_lr: 1.e-3
   comnivore_g:
@@ -48,7 +47,4 @@ pipeline:
   fused_causal: True
 
 utils:
-  log_freq: 20
-  n_save_images: 20
-
-
+  log_freq: 5

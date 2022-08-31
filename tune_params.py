@@ -1,16 +1,12 @@
 import os
 
-batch_sizes = [32, 64, 128, 256]
+batch_sizes = [16,32,64,128]
 l2s = [.1,]
-lrs = [5e-4,1e-4,1e-3]
-alphas = [2]
-snorkel_eps = [100,500,1000]
-snorkel_lrs = [1e-3,1e-4,5e-4]
+lrs = [3e-5,1e-5,5e-6]
+dropouts=[.1,.25,.5]
 
 for bs in batch_sizes:
-    for l2 in l2s:
-        for lr in lrs:
-            # for alpha in alphas:
-                # for ep in snorkel_eps:
-                    # for s_lr in snorkel_lrs:
-            os.system(f"python fuse_causal_estimates.py -c configs/CelebA.yaml -bs {bs} -lr {lr} -l2 {l2} -log tune_params")
+    # for l2 in l2s:
+    for lr in lrs:
+        for do in dropouts:
+            os.system(f"python get_spurious_samples.py -c configs/spur_exp/CelebA.yaml -bs {bs} -lr {lr} -do {do} -log TUNE_PARAMS_SPURIOUS")

@@ -1,32 +1,32 @@
 data:
   num_workers: 8
-  batch_size: 32
+  batch_size: 128
 
   dataset:
-    dataset_name: celebA
+    dataset_name: camelyon17
     root_path: ./artifacts/extacted_features
     feature_path: CLIP/2_class_FA_LESS
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/celebA/CLIP/2_class_FA_LESS
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/camelyon17/CLIP/2_class_FA
     n_orig_features: 769
     n_pac_features: 4
-    tasks: ["crop_bottom_segment", "crop_segment"]
+    tasks: ["orig", "gauss_blur"]
 
 model:
   active_lfs:
     notears: ['NoTears Sobolev']
     classic: ['PC','FCI','Exact Search','MMPC','GS','IAMB','Inter_IAMB','Lingam',]
     pycausal: ['fges','rfci','pc-all','fask',]
-  output_model: MLP
-  fuser: 'COmnivore_G'
+  output_model: CLIPMLP
+  fuser: 'COmnivore_V'
   alpha: 2
 
 opt:
-  epochs: 150
-  lr: 1.e-5
-  l2: 0.1
-  dropout: 0.1
+  epochs: 70
+  lr: 5.e-5
+  l2: 0.0
+  dropout: 0.5
   comnivore_v:
-    all_negative_balance: [0.3,1.0,0.1]
+    all_negative_balance: [0.1,1.0,0.1]
     snorkel_ep: 1000
     snorkel_lr: 1.e-4
   comnivore_g:
@@ -39,3 +39,7 @@ pipeline:
   baseline: False
   indiv_training: False
   fused_causal: True
+
+utils:
+  log_freq: 5
+

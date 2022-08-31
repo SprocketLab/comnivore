@@ -176,8 +176,11 @@ def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, met
     baseline_accs['test'] = {k:v for k,v in results_obj_test.items()}
     return baseline_accs
 
-def log_config(lr, l2, bs, dropout, n_layers):
-    log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | dropout = {dropout} | n_layers = {n_layers}")
+def log_config(lr, l2, bs, dropout, n_layers=None):
+    if n_layers:
+        log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | dropout = {dropout} | n_layers = {n_layers}")
+    else:
+        log(f"END MODEL HYPERPARAMS: lr = {lr} | l2 = {l2} | bs = {bs} | dropout = {dropout}")
 
 def test_baseline_nodes(pca_nodes, n_pca_features):
     matches = []
@@ -189,6 +192,15 @@ def test_baseline_nodes(pca_nodes, n_pca_features):
             match = False
         matches.append(match)
     if np.array(matches).all() == True:
+        return True
+    return False
+
+def test_empty_nodes(pca_nodes):
+    total_nodes = 0
+    for key in pca_nodes:
+        nodes_ = pca_nodes[key]
+        total_nodes += len(nodes_)
+    if total_nodes == 0:
         return True
     return False
 

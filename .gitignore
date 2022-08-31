@@ -6,4 +6,3 @@ causal-cmd.log
 .ipynb_checkpoints/
 test_segment/
 spurious_samples_exp/
-synthetic_ex[_results/

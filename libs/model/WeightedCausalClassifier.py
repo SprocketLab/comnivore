@@ -19,32 +19,62 @@ class WeightedCausalClassifier(CausalClassifier):
         super(WeightedCausalClassifier, self).__init__()
         pass
 
+    def get_base_predictor(self, train_data, model, feature_weights, \
+                                    batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
+                                    evaluate_func=None, metadata_val=None, \
+                                    valdata=None, log_freq=20):
+        print("training base predictor...")
+        self.batch_size = batch_size
+        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
+        model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
+        
+        _, self.best_chkpt = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
+                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,\
+                               batch_size=batch_size, log_freq=log_freq)
+        
+        _, _, f_x = self.evaluate(self.best_chkpt, train_data, batch_size)
+        return self.best_chkpt, f_x
+    
+    def get_points_weights_with_base_predictor(self, base_predictor, f_x, train_data, feature_weights, batch_size):
+        print("getting points weights...")
+        points_weights = np.ones((train_data.shape[0], 1))
+        causal_weight_thr = 0.5
+        causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
+        if len(causal_feature_idxs) > 0:
+            masked_feats = np.copy(train_data)
+            masked_feats[:,causal_feature_idxs] = 0
+            
+            _, _, f_x_accent = self.evaluate(base_predictor, masked_feats, batch_size)
+            f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
+
+            points_weights = f_x_diff_causal 
+            return points_weights.flatten()
+        return None
+
     def get_points_weights_mask_once(self, train_data, model, feature_weights, \
                                     batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
                                     evaluate_func=None, metadata_val=None, \
                                     valdata=None, log_freq=20):
         print("getting points weights...")
-        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
-        model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
-        
-        model, best_chkpt = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
-                           evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,\
-                               batch_size=batch_size, log_freq=log_freq)
-        
-        _, _, f_x = self.evaluate(best_chkpt, train_data, batch_size)
+        self.batch_size = batch_size
+        base_predictor, f_x = self.get_base_predictor(train_data, model, feature_weights, \
+                                    batch_size, lr, epochs, l2_penalty, \
+                                    evaluate_func, metadata_val, \
+                                    valdata, log_freq)
         
         points_weights = np.ones((train_data.shape[0], 1))
-        causal_feature_idxs = np.argwhere(np.array(feature_weights) > 0.5).flatten()
-        
+        causal_weight_thr = 0.5
+        causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
         if len(causal_feature_idxs) > 0:
             masked_feats = np.copy(train_data)
             masked_feats[:,causal_feature_idxs] = 0
             
-            _, _, f_x_accent = self.evaluate(model, masked_feats, batch_size)
+            _, _, f_x_accent = self.evaluate(self.best_chkpt, masked_feats, batch_size)
             f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
 
             points_weights = f_x_diff_causal 
-        return points_weights.flatten()
+            return points_weights.flatten()
+        return None
 
     def get_points_weights(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
         evaluate_func=None, metadata_val=None, valdata=None, log_freq=20):
@@ -85,6 +115,8 @@ class WeightedCausalClassifier(CausalClassifier):
     def train(self, model, trainloader, epochs=10, lr = 1e-3, verbose=False, l2_weight = 0.1, evaluate_func=None, \
         metadata_val=None, valdata=None, batch_size=64, log_freq=20, tune_by_metric='acc_wg'):
         optimizer = SGD(model.parameters(), lr, momentum=0.8)
+        # optimizer = Adam(model.parameters(), lr, weight_decay=1.e-5)
+        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, len(trainloader), eta_min=1.e-8)
         if cuda:
             model = model.cuda()
         model.train()
@@ -132,6 +164,7 @@ class WeightedCausalClassifier(CausalClassifier):
                     best_epoch = epoch
                 if verbose and (epoch+1)%log_freq == 0:
                     print(f"Epoch: {epoch} \n {results_str_}")
+            # scheduler.step()        
         if best_chkpt is None:
             best_chkpt = copy.deepcopy(model)
         if valdata is not None:
