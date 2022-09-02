@@ -84,15 +84,6 @@ def main(args):
     else:
         dropout = opt['dropout']
 
-    model_cfg = cfg['model']['output_model']
-    model = select_model(model_cfg)
-    
-    evaluate_func = None
-    if dataset_name in WILDS_DATASETS:
-        evaluate_func = WILDS_utils(dataset_name).evaluate_wilds
-    elif dataset_name in DOMAINBED_DATASETS or dataset_name in SYNTHETIC_DATASETS:
-        evaluate_func = Generic_utils().evaluate
-
     if 'tune_by' in cfg['model']:
         tune_by_metric = cfg['model']['tune_by']
     else:
@@ -104,12 +95,33 @@ def main(args):
     
     log_config(lr, l2, bs, dropout)
     
-    baseline_accs = None
     if 'utils' in cfg:
         utils_cfg = cfg['utils']
         log_freq = utils_cfg['log_freq']
     else:
         log_freq = 20
+
+    zero_one = False
+    p_zero = None
+    if 'weighting_scheme' in cfg:
+        weighting_cfg = cfg['weighting_scheme']
+        if 'zero_one' in weighting_cfg:
+            zero_one = weighting_cfg['zero_one']
+        # if 'p_zero' in ar
+        if 'p_zero' in args and not isinstance(args.p_zero,type(None)):
+            p_zero = args.p_zero
+        elif 'p_zero' in weighting_cfg:
+            p_zero = weighting_cfg['p_zero']
+            log(f"P_ZERO {p_zero}")
+
+    model_cfg = cfg['model']['output_model']
+    model = select_model(model_cfg)
+    
+    evaluate_func = None
+    if dataset_name in WILDS_DATASETS:
+        evaluate_func = WILDS_utils(dataset_name).evaluate_wilds
+    elif dataset_name in DOMAINBED_DATASETS or dataset_name in SYNTHETIC_DATASETS:
+        evaluate_func = Generic_utils().evaluate
     
 
     active_lfs = cfg['model']['active_lfs']
@@ -135,12 +147,18 @@ def main(args):
     else:
         if 'images_path' in dataset_cfg:
             images_path = dataset_cfg['images_path']
-            csv_file = os.path.join(images_path, "metadata.csv")
+            if 'metadata_file_name' not in dataset_cfg:
+                csv_file = os.path.join(images_path, "metadata.csv")
+            else:
+                metadata_file_name = dataset_cfg['metadata_file_name']
+                csv_file = os.path.join(images_path, metadata_file_name)
         else:
             image_path = None
             csv_file = None
     if 'n_save_images' in utils_cfg:
         n_save_images = utils_cfg['n_save_images']
+    else:
+        n_save_images = 20
     if fuser == 'COmnivore_V':
         COmnivore_params = opt['comnivore_v']
         all_negative_balance = np.arange(COmnivore_params['all_negative_balance'][0],COmnivore_params['all_negative_balance'][1],COmnivore_params['all_negative_balance'][2])
@@ -171,7 +189,7 @@ def main(args):
             points_weights, base_predictor = get_points_weights(traindata, model, feature_weights, epochs, lr, \
                                                 l2, evaluate_func=evaluate_func, \
                                                 metadata_val=metadata_val, valdata=valdata_processed, \
-                                                batch_size=bs, log_freq=log_freq)
+                                                batch_size=bs, log_freq=log_freq, zero_one=zero_one, p_zero=p_zero)
             log("TRAIN WITHOUT SAMPLE WEIGHT")
             acc_baseline = evaluate_trained_model(base_predictor, 
                             traindata, valdata=valdata_processed, \
@@ -186,8 +204,10 @@ def main(args):
             analyze_weights(points_weights)
             if csv_file is not None:
                 metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
-                high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, images_path, metadata_train, 
-                                                                                n_store=n_save_images, store_images=False, store_path=None)
+                high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, metadata_train, 
+                                                                                n_store=n_save_images, store_images=True, 
+                                                                                store_path=os.path.join('spurious_samples_exp',f'{dataset_name}'),
+                                                                                root_dir = os.path.join(images_path, "img_align_celeba"))
                 log("% SPURIOUS SAMPLES SEPARATION: {:.3f}".format(diff))
 
             log("TRAIN WITH SAMPLE WEIGHT")
@@ -212,7 +232,7 @@ def main(args):
         best_model_base = get_best_model_acc(eval_accs_baselne, tune_by=tune_by_metric)
         if csv_file is not None:
             log(f"BEST SEPARATION: {best_diff} CB: {best_cb}")
-        return best_model_spur,best_model_base
+        return best_model_spur, best_model_base
 
 def print_result(result_obj, mode="baseline"):
     if 'val' in result_obj:
@@ -240,6 +260,7 @@ if __name__ == '__main__':
     parser.add_argument('-log', '--log_path', type=str, help='log path', default=None)
     parser.add_argument('-img_path', '--images_path', type=str, help='root images path', default=None)
     parser.add_argument('-feat_path', '--feature_path', type=str, help='CLIP features path', default=None)
+    parser.add_argument('-p_zero', '--p_zero', type=float, help='% of sample weight set to 0 if using 0-1 weighting scheme', default=None)
     args = parser.parse_args()
     spurious_accs, baseline_accs = main(args)
     if baseline_accs is not None:

@@ -10,6 +10,7 @@ data:
     n_orig_features: 769
     n_pac_features: 6
     tasks: ["segment"]
+    images_path: /hdd2/wilds_data/waterbirds_v1.0
 
 extraction_pipeline:
   reshape_size: 224
@@ -24,17 +25,16 @@ model:
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: CLIPMLP
   fuser: 'COmnivore_V'
-  alpha: 2
 
 opt:
   epochs: 500
   lr: 7.5e-6
   l2: 0.1
-  dropout: 0.1
+  dropout: 0.5
   comnivore_v:
-    all_negative_balance: [0.1,1.0,0.1]
-    snorkel_ep: 500
-    snorkel_lr: 1.e-3
+    all_negative_balance: [0.1,0.11,0.01]
+    snorkel_ep: 1000
+    snorkel_lr: 5.e-4
   comnivore_g:
     n_triplets: 7 
     min_iters: 100
@@ -48,3 +48,8 @@ pipeline:
 
 utils:
   log_freq: 25
+  n_save_images: 20
+
+weighting_scheme:
+  zero_one: False
+  p_zero: 0.2
