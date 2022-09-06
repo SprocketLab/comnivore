@@ -5,4 +5,4 @@ __pycache__/
 causal-cmd.log
 .ipynb_checkpoints/
 test_segment/
-spurious_samples_exp/
+spurious_samples_exp/*

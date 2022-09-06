@@ -1,4 +1,5 @@
 from .waterbirds_candidate import Waterbirds_Candidate_Set
+from .fmow_candidate import FMoW_Candidate_Set
 from .multiclass_domainbed_candidate import MultiClassDomainBed
 from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
 from .iwildcam_candidate import IWildCam_Candidate_Set
@@ -17,6 +18,8 @@ class Candidate_Set:
     def get_candidate_set(self, dataset_name, **kwargs):
         if dataset_name == 'waterbirds':
             return Waterbirds_Candidate_Set(self.reshape_size, self.batch_size, **kwargs)
+        if dataset_name == 'fmow':
+            return FMoW_Candidate_Set(self.reshape_size, self.batch_size, **kwargs)
         if dataset_name == 'iwildcam':
             return IWildCam_Candidate_Set(self.reshape_size, self.batch_size, **kwargs)
         elif dataset_name == 'OfficeHome':

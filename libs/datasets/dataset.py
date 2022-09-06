@@ -3,6 +3,7 @@ WILDS_DATASETS = [
     "celebA",
     "camelyon17",
     "iwildcam",
+    "fmow",
 ]
 
 DOMAINBED_DATASETS = [

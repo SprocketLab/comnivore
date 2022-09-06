@@ -233,6 +233,8 @@ def test_duplicate_nodes(pca_nodes, cache_nodes):
     return False
     
 def get_best_model_acc(eval_accs, tune_by='acc_wg', return_best_key=False):
+    if eval_accs is None:
+        return
     best_val_acc = float('-inf')
     best_key = None
     for key in eval_accs:

@@ -43,17 +43,17 @@ class Waterbirds_Candidate_Set(WILDS_Candidate):
             ),)
         return trainloader_segment_2
     
-    def get_test_loader(self):
-        return super().get_test_loader()
+    # def get_test_loader(self):
+    #     return super().get_test_loader()
 
-    def get_val_loader(self):
-        return super().get_val_loader()
+    # def get_val_loader(self):
+    #     return super().get_val_loader()
     
-    def get_train_metadata(self):
-        return super().get_train_metadata()
+    # def get_train_metadata(self):
+    #     return super().get_train_metadata()
     
-    def get_test_metadata(self):
-        return super().get_test_metadata()
+    # def get_test_metadata(self):
+    #     return super().get_test_metadata()
     
-    def get_val_metadata(self):
-        return super().get_val_metadata()
+    # def get_val_metadata(self):
+    #     return super().get_val_metadata()

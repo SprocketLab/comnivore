@@ -1,16 +1,15 @@
 data:
   num_workers: 8
-  batch_size: 16
+  batch_size: 128
 
   dataset:
-    dataset_name: waterbirds
-    root_path: ./artifac1.ts/extracted_features
+    dataset_name: fmow
+    root_path: ./artifacts/extracted_features
     feature_path: CLIP/2_class_FA_CLEAN
-    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
+    load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/fmow/CLIP/2_class_FA_CLEAN
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["segment"]
-    images_path: /hdd2/wilds_data/waterbirds_v1.0
+    tasks: ["orig"]
 
 extraction_pipeline:
   reshape_size: 224
@@ -25,16 +24,17 @@ model:
     pycausal: ['fges','rfci','pc-all','fask',]
   output_model: CLIPMLP
   fuser: 'COmnivore_V'
+  tune_by: 'acc_worst_region'
 
 opt:
   epochs: 500
-  lr: 7.5e-6
-  l2: 0.1
-  dropout: 0.5
+  lr: 1.e-4
+  l2: 0.0
+  dropout: 0.2
   comnivore_v:
-    all_negative_balance: [0.1,0.11,0.01]
-    snorkel_ep: 1000
-    snorkel_lr: 5.e-4
+    all_negative_balance: [0.1,1.0,0.1]
+    snorkel_ep: 500
+    snorkel_lr: 1.e-3
   comnivore_g:
     n_triplets: 7 
     min_iters: 100
@@ -42,15 +42,14 @@ opt:
     step: 100
 
 pipeline:
-  baseline: False
+  baseline: True
   indiv_training: False
   fused_causal: True
   remove_features: False
   sample_weighting: True
 
 utils:
-  log_freq: 25
-  n_save_images: 20
+  log_freq: 5
 
 weighting_scheme:
   zero_one: False

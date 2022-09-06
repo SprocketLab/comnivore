@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader
 import copy
+from libs.utils.logger import log
 
 cuda = True if torch.cuda.is_available() else False
 
@@ -22,7 +23,7 @@ class WeightedCausalClassifier(CausalClassifier):
     def get_base_predictor(self, train_data, model, feature_weights, \
                                     batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
                                     evaluate_func=None, metadata_val=None, \
-                                    valdata=None, log_freq=20):
+                                    valdata=None, log_freq=20, tune_by='acc_wg'):
         print("training base predictor...")
         self.batch_size = batch_size
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
@@ -30,19 +31,23 @@ class WeightedCausalClassifier(CausalClassifier):
         
         _, self.best_chkpt = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 
                            evaluate_func=evaluate_func, metadata_val=metadata_val, valdata=valdata,\
-                               batch_size=batch_size, log_freq=log_freq)
+                               batch_size=batch_size, log_freq=log_freq, tune_by_metric=tune_by)
         
         _, _, f_x = self.evaluate(self.best_chkpt, train_data, batch_size)
         return self.best_chkpt, f_x
     
-    def get_points_weights_with_base_predictor(self, base_predictor, f_x, train_data, feature_weights, batch_size):
+    def get_points_weights_with_base_predictor(self, base_predictor, f_x, train_data, feature_weights, \
+                                                batch_size, non_causal=False):
         print("getting points weights...")
         points_weights = np.ones((train_data.shape[0], 1))
         causal_weight_thr = 0.5
-        causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
-        if len(causal_feature_idxs) > 0:
+        if not non_causal:
+            masked_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
+        else:
+            masked_feature_idxs = np.argwhere(np.array(feature_weights) <= causal_weight_thr).flatten()
+        if len(masked_feature_idxs) > 0:
             masked_feats = np.copy(train_data)
-            masked_feats[:,causal_feature_idxs] = 0
+            masked_feats[:,masked_feature_idxs] = 0
             
             _, _, f_x_accent = self.evaluate(base_predictor, masked_feats, batch_size)
             f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
@@ -54,30 +59,41 @@ class WeightedCausalClassifier(CausalClassifier):
     def get_points_weights_mask_once(self, train_data, model, feature_weights, \
                                     batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
                                     evaluate_func=None, metadata_val=None, \
-                                    valdata=None, log_freq=20):
+                                    valdata=None, log_freq=20, tune_by='acc_wg',
+                                    non_causal=False):
         print("getting points weights...")
         self.batch_size = batch_size
         base_predictor, f_x = self.get_base_predictor(train_data, model, feature_weights, \
                                     batch_size, lr, epochs, l2_penalty, \
                                     evaluate_func, metadata_val, \
-                                    valdata, log_freq)
+                                    valdata, log_freq, tune_by)
         
-        points_weights = np.ones((train_data.shape[0], 1))
-        causal_weight_thr = 0.5
-        causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
-        if len(causal_feature_idxs) > 0:
+        points_weights = np.zeros((train_data.shape[0], 1))
+        causal_weight_thr = np.quantile(np.asarray(feature_weights), 0.85)
+        # 0.9
+        # causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
+        # non_causal_feats_idxs = np.argwhere(np.array(feature_weights) <= causal_weight_thr).flatten()
+        if not non_causal:
+            masked_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
+        else:
+            masked_feature_idxs = np.argwhere(np.array(feature_weights) <= causal_weight_thr).flatten()
+        log(f" N MASKED FEATURES {len(masked_feature_idxs)}")
+        # exit()
+        if len(masked_feature_idxs) > 0:
             masked_feats = np.copy(train_data)
-            masked_feats[:,causal_feature_idxs] = 0
+            masked_feats[:,masked_feature_idxs] = 0
             
             _, _, f_x_accent = self.evaluate(self.best_chkpt, masked_feats, batch_size)
             f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
 
             points_weights = f_x_diff_causal 
-            return points_weights.flatten()
+            return points_weights.flatten(), masked_feature_idxs
         return None
 
-    def get_points_weights(self, train_data, model, feature_weights, batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
-        evaluate_func=None, metadata_val=None, valdata=None, log_freq=20):
+    def get_points_weights(self, train_data, model, feature_weights, \
+                            batch_size=64, lr=1e-3, epochs=20, l2_penalty=0.1, \
+                            evaluate_func=None, metadata_val=None, \
+                            valdata=None, log_freq=20):
         trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size)
         model = model(dataset.shape[1], class_num=np.unique(labels).shape[0])
         model = self.train(model, trainloader, epochs=epochs, lr=lr, l2_weight=l2_penalty, verbose=True, 

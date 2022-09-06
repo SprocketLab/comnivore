@@ -91,21 +91,31 @@ def get_points_weights(traindata, model, \
                         lr = 1e-3, l2_penalty=0.1, evaluate_func=None, 
                         metadata_val=None,\
                         valdata=None, batch_size=64, \
-                        log_freq=20, zero_one = False, p_zero = None):
+                        log_freq=20, zero_one = False, \
+                        p_zero = None, tune_by='acc_wg',
+                        non_causal=False):
 
     weighted_clf = WeightedCausalClassifier()
-    points_weights = weighted_clf.get_points_weights_mask_once(traindata, model, feature_weights, epochs=epochs, lr=lr, \
-                                                               l2_penalty=l2_penalty, evaluate_func=evaluate_func, \
-                                                               metadata_val=metadata_val, \
-                                                                valdata=valdata, batch_size=batch_size, log_freq=log_freq)
+    points_weights, masked_feats_idxs = weighted_clf.get_points_weights_mask_once(traindata, model, feature_weights, \
+                                                                epochs=epochs, lr=lr, \
+                                                                l2_penalty=l2_penalty, evaluate_func=evaluate_func, \
+                                                                metadata_val=metadata_val, \
+                                                                valdata=valdata, batch_size=batch_size, \
+                                                                log_freq=log_freq, tune_by=tune_by, \
+                                                                non_causal=non_causal)
     if points_weights is not None:
         points_weights = [1/p for p in points_weights.tolist()]
+        # points_weights = np.log(points_weights)
         if zero_one:
             assert p_zero is not None and p_zero > 0
             points_weights = binarize_score(points_weights, p_zero)
-        return points_weights, weighted_clf
+        return points_weights, weighted_clf, masked_feats_idxs
     else:
         return None #None is when all predicted edge weights are too small -- no causal features predicted
+
+def sigmoid(p):
+    p = np.asarray(p)
+    return 1/(1 + np.exp(-p))
 
 def binarize_score(points_weights, p_zero):
     # sort, get index of p_zero% lowest, 0 if in that group
@@ -122,7 +132,8 @@ def store_spurious_images(store_path, files_to_copy, scores=None):
     for i, file in enumerate(files_to_copy):
         filename = file.split(os.path.sep)[-1]
         if scores is not None:
-            filename = f"{str(scores[i])}_{filename}"
+            score = round(scores[i], 3)
+            filename = f"{str(score)}_{filename}"
         shutil.copy(file, os.path.join(store_path, filename))
 
 def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, testdata, metadata_test, generator, \
@@ -141,7 +152,7 @@ def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, test
     accs_['test'] = {k:v for k,v in results_obj_test.items()}
     return accs_
 
-def train_and_evaluate_end_model(traindata, valdata, metadata_val, testdata, metadata_test, generator, points_weights=[], \
+def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, testdata, metadata_test, generator, points_weights=[], \
                                 epochs=20, lr=1e-3, bs=32, l2=0.1, dropout=0.1, model=CLIPMLP, n_layers=2, \
                                 evaluate_func=None, log_freq=20, \
                                 tune_by_metric='acc_wg', verbose=True):
@@ -187,7 +198,7 @@ def group_and_store_images_by_weigts(point_weights, csv_file, metadata_train, n_
     
     if store_images:
         assert store_path is not None
-        train_file_paths = df[df['partition']==0]['image_id'].tolist()
+        train_file_paths = df[df['split']==0]['img_filename'].tolist()
         if root_dir is not None:
             train_file_paths = [os.path.join(root_dir, f) for f in train_file_paths]
         train_file_paths = np.asarray(train_file_paths)
