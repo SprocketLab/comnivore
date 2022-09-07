@@ -65,13 +65,13 @@ if __name__ == '__main__':
 
     batch_size = 1280
 
-    store_dir = "/hdd2/dyah/coloredmnist_synthetic_spurious"
+    store_dir = "/hdd2/dyah/coloredmnist_synthetic_spurious_granular_4"
     if not os.path.isdir(store_dir):
         os.makedirs(store_dir)
 
-    p_to_generate = np.arange(.2,.3,.01)
+    p_to_generate = np.arange(.1,.225,.025)
     print(p_to_generate)
-    spurious_p_test = 0.7
+    spurious_p_test = 0.6
 
     spurious_env, spurious_env_flip = generate_spurious_envs()
     test_rnd_loader, test_spur_loader = split_random_spurious(test_set, spurious_p_test, batch_size)

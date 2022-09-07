@@ -52,7 +52,7 @@ def main(args):
     if 'log_path' in args and args.log_path is not None:
         log_path = os.path.join('log','spurious_exp', dataset_name,args.log_path,timestamp)
     else:
-        log_path = os.path.join('log','spurious_exp', dataset_name, timestamp)
+        log_path = os.path.join('log','combine_remove_weighting', dataset_name, timestamp)
     
     ensure_path(log_path)
     set_log_path(log_path)
@@ -112,7 +112,7 @@ def main(args):
             p_zero = args.p_zero
         elif 'p_zero' in weighting_cfg:
             p_zero = weighting_cfg['p_zero']
-            log(f"P_ZERO {p_zero}")
+            # log(f"P_ZERO {p_zero}")
 
     model_cfg = cfg['model']['output_model']
     model = select_model(model_cfg)
@@ -147,6 +147,7 @@ def main(args):
     cache_nodes = []
     if 'images_path' in args and not isinstance(args.images_path,type(None)):
         images_path = args.images_path
+        csv_file = os.path.join(images_path, "metadata.csv")
     else:
         if 'images_path' in dataset_cfg:
             images_path = dataset_cfg['images_path']
@@ -208,6 +209,7 @@ def main(args):
                                                 metadata_val=metadata_val, valdata=valdata_processed, \
                                                 batch_size=bs, log_freq=log_freq, zero_one=zero_one, \
                                                 p_zero=p_zero, tune_by=tune_by_metric)
+            # points_weights = np.random.rand(traindata.shape[0])
             if points_weights is None:
                 print("No causal features predicted, skipping training")
                 continue
@@ -237,7 +239,8 @@ def main(args):
                 
                 log("="*100)
                 log("WITH SAMPLE WEIGHT")
-                acc_spur = train_and_evaluate_end_model_weighted(traindata, valdata_processed, metadata_val, testdata_processed, \
+                acc_spur = train_and_evaluate_end_model_weighted(traindata, valdata_processed, \
+                                        metadata_val, testdata_processed, \
                                         metadata_test, \
                                         generator=rng, 
                                         points_weights=points_weights, \

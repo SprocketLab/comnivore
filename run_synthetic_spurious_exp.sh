@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=$1
-root_images_dir=/hdd2/dyah/coloredmnist_synthetic_spurious_granular
+root_images_dir=/hdd2/dyah/coloredmnist_synthetic_spurious_granular_4
 # for dir in $root_images_dir/*
 # do
 #     feat_path=$(basename $dir)

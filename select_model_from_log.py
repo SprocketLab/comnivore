@@ -48,12 +48,8 @@ def scan_file(lines):
             avg_idx = i+1
             wg_idx = i
             while wg_idx < len(lines) and len(lines[wg_idx]) > 0:
-                # print(wg_idx, len(lines))
                 wg_idx += 1
             wg_idx -= 2
-            # avg_idx = wg_idx+1
-            # print("HIII", lines[avg_idx][-5:])
-            # exit()
             avg = float(lines[avg_idx][-5:])
             wg = float(lines[wg_idx][-5:])
             if line == 'baseline val':

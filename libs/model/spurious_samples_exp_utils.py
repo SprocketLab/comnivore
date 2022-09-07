@@ -81,7 +81,7 @@ def get_points_weights_with_base_predictor(base_predictor, f_x, train_data, feat
     weighted_clf = WeightedCausalClassifier()
     points_weights = weighted_clf.get_points_weights_with_base_predictor(base_predictor, f_x, train_data, feature_weights, batch_size)
     if points_weights is not None:
-        points_weights = [1/p for p in points_weights.tolist()] ### try functions that make stuffs low twhen the weight are high
+        # points_weights = [1/p for p in points_weights.tolist()] ### try functions that make stuffs low twhen the weight are high
         return points_weights
     else:
         return None #None is when all predicted edge weights are too small -- no causal features predicted
@@ -140,25 +140,33 @@ def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, test
                             bs=32, evaluate_func=None,):
     accs_ = {}
     clf = WeightedCausalClassifier()
-    outputs_val, labels_val, _ = clf.evaluate(trained_model.best_chkpt, valdata, batch_size=bs)
-    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
+    outputs_val, labels_val, _, metadata = clf.evaluate(trained_model.best_chkpt, valdata, metadata=metadata_val, batch_size=bs)
+    print(metadata_val.shape, metadata.shape)
+    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata)
     log(f"Val \n {results_str_val}")
-    outputs_test, labels_test, _ = clf.evaluate(trained_model.best_chkpt, testdata, batch_size=bs)
+    outputs_test, labels_test, _, metadata = clf.evaluate(trained_model.best_chkpt, testdata, \
+                                                            metadata=metadata_test,\
+                                                            batch_size=bs)
 
-    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_test)
+    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata)
 
     log(f"Test \n {results_str_test}")
     accs_['val'] = {k:v for k,v in results_obj_val.items()}
     accs_['test'] = {k:v for k,v in results_obj_test.items()}
     return accs_
 
-def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, testdata, metadata_test, generator, points_weights=[], \
-                                epochs=20, lr=1e-3, bs=32, l2=0.1, dropout=0.1, model=CLIPMLP, n_layers=2, \
-                                evaluate_func=None, log_freq=20, \
-                                tune_by_metric='acc_wg', verbose=True):
+def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, \
+                                            testdata, metadata_test, generator, \
+                                            points_weights=[], \
+                                            epochs=20, lr=1e-3, bs=32, \
+                                            l2=0.1, dropout=0.1, model=CLIPMLP, n_layers=2, \
+                                            evaluate_func=None, log_freq=20, \
+                                            tune_by_metric='acc_wg', verbose=True):
     accs_ = {}
     if len(traindata) == 0:
         return 0
+    if traindata.shape[0] > len(points_weights):
+        traindata = traindata[:len(points_weights), :]
     clf = WeightedCausalClassifier()
     clf.train_end_model(model, traindata, evaluate_func, points_weights, \
                         valdata=valdata, metadata_val=metadata_val,\
@@ -166,12 +174,12 @@ def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, test
                         verbose=verbose, log_freq=log_freq, \
                         tune_by_metric=tune_by_metric)
 
-    outputs_val, labels_val, _ = clf.evaluate(clf.best_chkpt, valdata)
-    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
+    outputs_val, labels_val, _, metadata_  = clf.evaluate(clf.best_chkpt, valdata, metadata=metadata_val)
+    results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_)
     log(f"Val \n {results_str_val}")
-    outputs_test, labels_test, _ = clf.evaluate(clf.best_chkpt, testdata)
+    outputs_test, labels_test, _, metadata_ = clf.evaluate(clf.best_chkpt, testdata, metadata=metadata_test)
 
-    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_test)
+    results_obj_test, results_str_test = evaluate_func(outputs_test, labels_test, metadata_)
 
     log(f"Test \n {results_str_test}")
     accs_['val'] = {k:v for k,v in results_obj_val.items()}
@@ -198,7 +206,7 @@ def group_and_store_images_by_weigts(point_weights, csv_file, metadata_train, n_
     
     if store_images:
         assert store_path is not None
-        train_file_paths = df[df['split']==0]['img_filename'].tolist()
+        train_file_paths = df[df['split']==0]['image_path'].tolist()
         if root_dir is not None:
             train_file_paths = [os.path.join(root_dir, f) for f in train_file_paths]
         train_file_paths = np.asarray(train_file_paths)

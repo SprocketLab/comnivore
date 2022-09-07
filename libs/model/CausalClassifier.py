@@ -129,7 +129,7 @@ class CausalClassifier:
         print("BEST EPOCH", best_epoch)
         return model, val_perf, best_chkpt
 
-    def features_to_dataloader(self, data, batch_size, nodes_to_train=None, shuffle=True, generator=None):
+    def features_to_dataloader(self, data, batch_size, nodes_to_train=None, metadata=None, shuffle=True, generator=None):
         if nodes_to_train is None:
             self.nodes_to_train = [i for i in range(data.shape[1]-1)]
             nodes_to_train = self.nodes_to_train
@@ -138,8 +138,13 @@ class CausalClassifier:
         y = data[:, -1]
         tensor_x = torch.Tensor(X) # transform to torch tensor
         tensor_y = torch.Tensor(y)
-        my_dataset = TensorDataset(tensor_x,tensor_y) # create your datset
-        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator)
+        if metadata is None:
+            my_dataset = TensorDataset(tensor_x, tensor_y) # create your datset
+        else:
+            metadata = torch.Tensor(metadata)
+            print(tensor_x.shape, tensor_y.shape, metadata.shape)
+            my_dataset = TensorDataset(tensor_x, tensor_y, metadata) # create your datset
+        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator, drop_last=True)
         return my_dataloader, X, y
         
     def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, \
@@ -160,31 +165,42 @@ class CausalClassifier:
                 log_freq=log_freq, tune_by_metric=tune_by_metric)
         return self.model, val_perf, self.best_chkpt
 
-    def evaluate(self, model, test_data, batch_size=None, nodes_to_train=None):
+    def evaluate(self, model, test_data, batch_size=None, nodes_to_train=None, metadata=None):
         if batch_size == None:
             batch_size = self.batch_size
         if nodes_to_train is not None:
-            testloader, _,_ = self.features_to_dataloader(test_data, batch_size, nodes_to_train, shuffle=False)
+            testloader, _,_ = self.features_to_dataloader(test_data, batch_size, nodes_to_train, metadata=metadata, shuffle=False)
         else:
-            testloader, _,_ = self.features_to_dataloader(test_data, batch_size, shuffle=False)
+            testloader, _,_ = self.features_to_dataloader(test_data, batch_size, metadata=metadata, shuffle=False)
         correct = 0
         model.eval()
         y_preds = []
         labels = []
         outputs = []
+        metadata_all = []
         with torch.no_grad():
-            for test_data, y_true in testloader:
+            for chunk in testloader:
+                if len(chunk) == 3:
+                    test_data, y_true, metadata = chunk
+                    metadata_all.extend(metadata)
+                else:
+                    test_data, y_true = chunk
+                    metadata = None
                 if cuda:
                     test_data = test_data.cuda()
                     y_true = y_true.cuda()
                 output = model(test_data)
-                
                 y_pred = F.log_softmax(output, dim=1)
                 
                 outputs.append(y_pred.detach().cpu().numpy())
                 y_pred = torch.argmax(y_pred, dim=1)
+                
                 y_preds.extend(y_pred.detach().cpu().numpy())
                 labels.extend(y_true.detach().cpu().numpy())
+
                 acc1 = np.argwhere((y_pred.detach().cpu().numpy() == y_true.detach().cpu().numpy())==True).shape[0]
                 correct += acc1
-        return np.asarray(y_preds), np.asarray(labels), np.vstack(outputs)
+        if metadata is None:
+            return np.asarray(y_preds), np.asarray(labels), np.vstack(outputs)
+        else:
+            return np.asarray(y_preds), np.asarray(labels), np.vstack(outputs), np.vstack(metadata_all) 

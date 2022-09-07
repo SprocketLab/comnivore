@@ -69,9 +69,9 @@ class WeightedCausalClassifier(CausalClassifier):
                                     valdata, log_freq, tune_by)
         
         points_weights = np.zeros((train_data.shape[0], 1))
-        causal_weight_thr = np.quantile(np.asarray(feature_weights), 0.85)
-        # 0.9
-        # causal_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
+        causal_weight_thr = 0.5
+        # np.quantile(np.asarray(feature_weights), 0.85)
+        causal_feature_idxs = np.argwhere(np.array(feature_weights) > 0.5).flatten()
         # non_causal_feats_idxs = np.argwhere(np.array(feature_weights) <= causal_weight_thr).flatten()
         if not non_causal:
             masked_feature_idxs = np.argwhere(np.array(feature_weights) > causal_weight_thr).flatten()
@@ -87,7 +87,7 @@ class WeightedCausalClassifier(CausalClassifier):
             f_x_diff_causal = np.sum(np.abs(f_x_accent - f_x), axis=1) #large for causal points
 
             points_weights = f_x_diff_causal 
-            return points_weights.flatten(), masked_feature_idxs
+            return points_weights.flatten(), causal_feature_idxs
         return None
 
     def get_points_weights(self, train_data, model, feature_weights, \
@@ -128,8 +128,13 @@ class WeightedCausalClassifier(CausalClassifier):
             regular_loss = regular_loss_f(y_pred, y_true)
             return regular_loss
 
-    def train(self, model, trainloader, epochs=10, lr = 1e-3, verbose=False, l2_weight = 0.1, evaluate_func=None, \
-        metadata_val=None, valdata=None, batch_size=64, log_freq=20, tune_by_metric='acc_wg'):
+    def train(self, model, trainloader, \
+                epochs=10, lr = 1e-3, \
+                verbose=False, l2_weight = 0.1, \
+                valdata=None, metadata_val=None,\
+                evaluate_func=None, \
+                batch_size=64, log_freq=20,\
+                tune_by_metric='acc_wg'):
         optimizer = SGD(model.parameters(), lr, momentum=0.8)
         # optimizer = Adam(model.parameters(), lr, weight_decay=1.e-5)
         scheduler = lr_scheduler.CosineAnnealingLR(optimizer, len(trainloader), eta_min=1.e-8)
@@ -141,9 +146,12 @@ class WeightedCausalClassifier(CausalClassifier):
         best_chkpt = None
         best_epoch = 0
         for epoch in tqdm(range(epochs)):
+            metadata_all = []
             for _, chunk in enumerate(trainloader):
                 if len(chunk) == 3:
                     data, target, weights = chunk
+                elif len(chunk) == 4:
+                    data, target, weights, _ = chunk
                 else:
                     data, target = chunk
                     weights = None
@@ -171,8 +179,8 @@ class WeightedCausalClassifier(CausalClassifier):
                 loss.backward()
                 optimizer.step()
             if valdata is not None:
-                outputs_, labels_, _ = self.evaluate(model, valdata, batch_size)
-                results_obj_, results_str_ = evaluate_func(outputs_, labels_, metadata_val)
+                outputs_, labels_, _, metadata_ = self.evaluate(model, valdata, metadata=metadata_val, batch_size=batch_size)
+                results_obj_, results_str_ = evaluate_func(outputs_, labels_, metadata_)
                 val_perf.append(results_obj_)
                 if results_obj_[tune_by_metric] > best_val_perf:
                     best_val_perf = results_obj_[tune_by_metric]
@@ -201,15 +209,24 @@ class WeightedCausalClassifier(CausalClassifier):
                                                 batch_size=batch_size, log_freq=log_freq, tune_by_metric=tune_by_metric)
         return self.model, self.best_chkpt
     
-    def features_to_dataloader(self, data, batch_size=64, points_weights=[], shuffle=True):
+    def features_to_dataloader(self, data, batch_size=64, points_weights=[], metadata=None, shuffle=True):
+        # print('PW', points_weights)
         points_weights = np.array(points_weights)
         X = data[:, :-1]
         y = data[:, -1]
         tensor_x = torch.Tensor(X) # transform to torch tensor
         tensor_y = torch.Tensor(y)
-        if len(points_weights) == 0:
+        if len(points_weights) == 0 and metadata is None:
             my_dataset = TensorDataset(tensor_x,tensor_y) # create your datset
+        elif len(points_weights) > 0 and metadata is None:
+            points_weights = torch.Tensor(points_weights).reshape(-1,1)
+            my_dataset = TensorDataset(tensor_x,tensor_y, points_weights)
+        elif len(points_weights) == 0 and metadata is not None:
+            metadata = torch.Tensor(metadata)
+            my_dataset = TensorDataset(tensor_x,tensor_y, metadata)
         else:
-            my_dataset = TensorDataset(tensor_x,tensor_y, torch.Tensor(points_weights).reshape(-1,1))
-        my_dataloader = DataLoader(my_dataset, batch_size, shuffle) 
+            metadata = torch.Tensor(metadata)
+            points_weights = torch.Tensor(points_weights).reshape(-1,1)
+            my_dataset = TensorDataset(tensor_x,tensor_y, points_weights, metadata)
+        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, drop_last=True) 
         return my_dataloader, X, y
