@@ -50,9 +50,9 @@ def main(args):
     # create log folder
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if 'log_path' in args and args.log_path is not None:
-        log_path = os.path.join('log','spurious_exp', dataset_name,args.log_path,timestamp)
+        log_path = os.path.join('log','SPURIOUS_NEW', dataset_name, args.log_path,timestamp)
     else:
-        log_path = os.path.join('log','combine_remove_weighting', dataset_name, timestamp)
+        log_path = os.path.join('log','SPURIOUS_NEW', dataset_name, timestamp)
     
     ensure_path(log_path)
     set_log_path(log_path)
@@ -188,7 +188,7 @@ def main(args):
             
         COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
         
-        best_diff = 0
+        best_diff = float("-inf")
         best_cb = 0
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
@@ -228,10 +228,12 @@ def main(args):
                 
                 if csv_file is not None:
                     metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
-                    high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, metadata_train, 
+                    high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, \
+                                                                                    metadata_train, \
                                                                                     n_store=n_save_images, store_images=True, 
                                                                                     store_path=os.path.join('spurious_samples_exp',f'{dataset_name}'),
-                                                                                    root_dir = os.path.join(images_path))
+                                                                                    root_dir = os.path.join(images_path),\
+                                                                                    dataset_name = dataset_name)
                     log("% SPURIOUS SAMPLES SEPARATION: {:.3f}".format(diff))
                     if diff > best_diff:
                         best_diff = diff

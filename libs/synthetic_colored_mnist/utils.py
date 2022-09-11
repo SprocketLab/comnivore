@@ -31,7 +31,7 @@ def transform_image_with_env(env, loader, digits_to_store=[0,1], mode="backgroun
     y_true = torch.Tensor(y_true)
     return images, y_true
 
-def transform_image_random(loader, digits_to_store=[0,1], mode="background"):
+def transform_image_random(loader, possible_color_keys, digits_to_store=[0,1], mode="background"):
     images = torch.zeros((1,3,28,28))
     y_true = []
     for _, (imgs, labels) in tqdm(enumerate(loader)):
@@ -40,7 +40,7 @@ def transform_image_random(loader, digits_to_store=[0,1], mode="background"):
             imgs = imgs[mask,:,:,:]
             labels = labels[mask]
         # print('before', imgs)
-        transformed_imgs = color_digit_random(imgs)
+        transformed_imgs = color_digit_random(imgs, possible_color_keys)
         # print('after', transformed_imgs)
         images=torch.vstack((images,transformed_imgs))
         y_true.extend(labels.detach().cpu().numpy())

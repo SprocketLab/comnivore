@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 from .CausalClassifier import CausalClassifier
 from torch.optim import SGD, Adam, lr_scheduler
-from torch.autograd import Variable
+# from torch.autograd import Variable
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader
@@ -160,8 +160,8 @@ class WeightedCausalClassifier(CausalClassifier):
                     target = target.cuda()
                     if weights is not None:
                         weights = weights.cuda()
-                data = Variable(data.type(FloatTensor))
-                target = Variable(target.type(LongTensor))
+                data = data.type(FloatTensor)
+                target = target.type(LongTensor)
                 optimizer.zero_grad()
                 # Forward pass
                 y_pred = model(data)
@@ -210,7 +210,6 @@ class WeightedCausalClassifier(CausalClassifier):
         return self.model, self.best_chkpt
     
     def features_to_dataloader(self, data, batch_size=64, points_weights=[], metadata=None, shuffle=True):
-        # print('PW', points_weights)
         points_weights = np.array(points_weights)
         X = data[:, :-1]
         y = data[:, -1]
@@ -228,5 +227,5 @@ class WeightedCausalClassifier(CausalClassifier):
             metadata = torch.Tensor(metadata)
             points_weights = torch.Tensor(points_weights).reshape(-1,1)
             my_dataset = TensorDataset(tensor_x,tensor_y, points_weights, metadata)
-        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, drop_last=True) 
+        my_dataloader = DataLoader(my_dataset, batch_size, shuffle) 
         return my_dataloader, X, y

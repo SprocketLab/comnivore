@@ -4,6 +4,7 @@ import os
 import shutil
 import pandas as pd
 from libs.utils.logger import log
+from libs.datasets import dataset_const
 
 
 def get_data(samples_dict, G_estimates):
@@ -141,7 +142,7 @@ def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, test
     accs_ = {}
     clf = WeightedCausalClassifier()
     outputs_val, labels_val, _, metadata = clf.evaluate(trained_model.best_chkpt, valdata, metadata=metadata_val, batch_size=bs)
-    print(metadata_val.shape, metadata.shape)
+    # print(metadata_val.shape, metadata.shape)
     results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata)
     log(f"Val \n {results_str_val}")
     outputs_test, labels_test, _, metadata = clf.evaluate(trained_model.best_chkpt, testdata, \
@@ -187,18 +188,23 @@ def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, \
     return accs_
 
     
-def group_and_store_images_by_weigts(point_weights, csv_file, metadata_train, n_store=100, store_images=True, \
-                                        store_path=None, return_eval_results=True, root_dir = None):
+def group_and_store_images_by_weigts(point_weights, 
+                                        csv_file, metadata_train, \
+                                        dataset_name,
+                                        n_store=100, store_images=True, \
+                                        store_path=None, return_eval_results=True, 
+                                        root_dir = None):
     
-    sorted_idx_lowest = np.argsort(point_weights)
+    sorted_idx_lowest = np.argsort(np.asarray(point_weights))
     n_lowest = sorted_idx_lowest[:n_store]
     n_highest = sorted_idx_lowest[len(point_weights)-n_store:]
     
-    metadata_low = metadata_train[n_lowest]
-    metadata_high = metadata_train[n_highest]
-    
-    low_p_spur = len(metadata_low[metadata_low == 0]) / len(metadata_low)
-    high_p_spur = len(metadata_high[metadata_high == 0]) / len(metadata_high)
+    metadata_low = np.array(metadata_train[n_lowest])
+    metadata_high = np.array(metadata_train[n_highest])
+    # print('METADATA', metadata_low)
+
+    low_p_spur = metadata_low[metadata_low == 0].shape[0] / metadata_low.shape[0]
+    high_p_spur = metadata_high[metadata_high == 0].shape[0] / metadata_high.shape[0]
     
     log("% high files from spurious group: {:.3f}".format(high_p_spur))
     log("% low files from spurious group: {:.3f}".format(low_p_spur))
@@ -206,7 +212,8 @@ def group_and_store_images_by_weigts(point_weights, csv_file, metadata_train, n_
     
     if store_images:
         assert store_path is not None
-        train_file_paths = df[df['split']==0]['image_path'].tolist()
+        dataset_const_ = dataset_const[dataset_name]
+        train_file_paths = df[df['split']==0][dataset_const_['image_file_column_name']].tolist()
         if root_dir is not None:
             train_file_paths = [os.path.join(root_dir, f) for f in train_file_paths]
         train_file_paths = np.asarray(train_file_paths)
@@ -216,9 +223,15 @@ def group_and_store_images_by_weigts(point_weights, csv_file, metadata_train, n_
         store_spurious_images( os.path.join(store_path, "high"), high_files, np.asarray(point_weights)[n_highest])
     
     if return_eval_results:
-        return high_p_spur, low_p_spur, np.abs(high_p_spur-low_p_spur)
+        return high_p_spur, low_p_spur, low_p_spur-high_p_spur
         
     
 def analyze_weights(point_weights):
     point_weights = np.array(point_weights)
-    log(f"Max: {np.amax(point_weights)} | Min: {np.amin(point_weights)} | Mean: {np.mean(point_weights)} | Median: {np.median(point_weights)}")
+    max_ = np.amax(point_weights)
+    min_ = np.amin(point_weights)
+    mean_ = np.mean(point_weights)
+    median_ = np.median(point_weights)
+    std_ = np.std(point_weights)
+    norm_std = std_ / mean_
+    log("Max: {:.3f} | Min: {:.3f} | Mean: {:.3f} | Median: {:.3f} | Std: {:.3f} | Norm Std: {:.3f} ".format(max_, min_, mean_, median_, std_, norm_std))

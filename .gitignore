@@ -6,3 +6,5 @@ causal-cmd.log
 .ipynb_checkpoints/
 test_segment/
 spurious_samples_exp/*
+MNIST/
+.Rhistory

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.optim import SGD, Adam, lr_scheduler
 from torch.utils.data import TensorDataset, DataLoader
-from torch.autograd import Variable
+# from torch.autograd import Variable
 import torch.nn.functional as F
 from tqdm import tqdm
 import copy
@@ -92,12 +92,12 @@ class CausalClassifier:
         best_val_perf = 0
         best_epoch = 0
         for epoch in tqdm(range(epochs)):
-            for batch_idx, (data, target) in enumerate(trainloader):
+            for batch_idx, chunk in enumerate(trainloader):
                 if cuda:
                     data = data.cuda()
                     target = target.cuda()
-                data = Variable(data.type(FloatTensor))
-                target = Variable(target.type(LongTensor))
+                data = data.type(FloatTensor)
+                target = target.type(LongTensor)
                 optimizer.zero_grad()
                 # Forward pass
                 y_pred = model(data)
@@ -114,8 +114,8 @@ class CausalClassifier:
                 loss.backward()
                 optimizer.step()
             if valdata is not None:
-                outputs_val, labels_val, _ = self.evaluate(model, valdata, batch_size)
-                results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_val)
+                outputs_val, labels_val, _, metadata_ = self.evaluate(model, valdata,  metadata=metadata_val, batch_size=batch_size)
+                results_obj_val, results_str_val = evaluate_func(outputs_val, labels_val, metadata_)
                 val_perf.append(results_obj_val)
                 if results_obj_val[tune_by_metric] > best_val_perf:
                     best_val_perf = results_obj_val[tune_by_metric]
@@ -142,17 +142,20 @@ class CausalClassifier:
             my_dataset = TensorDataset(tensor_x, tensor_y) # create your datset
         else:
             metadata = torch.Tensor(metadata)
-            print(tensor_x.shape, tensor_y.shape, metadata.shape)
             my_dataset = TensorDataset(tensor_x, tensor_y, metadata) # create your datset
-        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator, drop_last=True)
+        my_dataloader = DataLoader(my_dataset, batch_size, shuffle, generator=generator)
         return my_dataloader, X, y
         
-    def train_baseline(self, model, train_data, batch_size=128, lr=1e-3, epochs=20, \
-        verbose=False, n_layers=2, l2=0.1, dropout=0.1, valdata=None, metadata_val=None, generator=None, evaluate_func=None, log_freq=50,
-        tune_by_metric='acc_wg'):
+    def train_baseline(self, model, train_data, \
+                        batch_size=128, lr=1e-3, epochs=20, \
+                        verbose=False, n_layers=2, l2=0.1, dropout=0.1, \
+                        valdata=None, metadata_val=None, generator=None, \
+                        evaluate_func=None, log_freq=50,\
+                        tune_by_metric='acc_wg'):
         
         self.nodes_to_train = [i for i in range(train_data.shape[1]-1)]
-        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, self.nodes_to_train, generator=generator)
+        trainloader, dataset, labels = self.features_to_dataloader(train_data, batch_size, \
+                                                                    self.nodes_to_train, generator=generator)
         self.batch_size = batch_size
 
         input_size = dataset.shape[1]

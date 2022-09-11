@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=$1
-root_images_dir=/hdd2/dyah/coloredmnist_synthetic_spurious/0.4
+root_images_dir=/hdd2/dyah/uncorrelated_coloredmnist_synthetic_0/0.6
 
 feat_path=$(basename $root_images_dir)
 image_path=$root_images_dir

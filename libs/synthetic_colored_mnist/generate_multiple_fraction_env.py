@@ -2,6 +2,8 @@ from utils import *
 from mnist_tasks.mnist_loader import train_set, test_set, valid_set
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
+import argparse
+import os
 
 split_dict = {
     0: "train",
@@ -28,12 +30,13 @@ def generate_spurious_envs():
     spurious_env_flip = flip_digit_color(flip_map, spurious_env)
     return spurious_env, spurious_env_flip
 
-def transform_images(loader, split, random=0, spurious_env=None):
+def transform_images(loader, split, possible_color_keys=[], random=0, spurious_env=None):
     if not random:
         assert spurious_env is not None
         images_, labels_ = transform_image_with_env(spurious_env, loader)
     else:
-        images_, labels_ = transform_image_random(loader)
+        assert len(possible_color_keys) > 0
+        images_, labels_ = transform_image_random(loader, possible_color_keys)
     return images_, labels_
 
 def save_images_with_path(images_, labels_, store_dir, split, random):
@@ -60,24 +63,33 @@ def merge_metadata(metadata_list):
     return metadata_all
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--n_run', type=int, help='nth run', required=True)
+    args = parser.parse_args()
+    n_run = args.n_run
+
     digits_to_store = [0,1]
     MODE = "background"
 
     batch_size = 1280
 
-    store_dir = "/hdd2/dyah/coloredmnist_synthetic_spurious_granular_4"
+    store_dir = f"/hdd2/dyah/uncorrelated_coloredmnist_synthetic_{str(n_run)}"
     if not os.path.isdir(store_dir):
         os.makedirs(store_dir)
 
-    p_to_generate = np.arange(.1,.225,.025)
+    p_to_generate = np.arange(.1,.7,.1)
     print(p_to_generate)
-    spurious_p_test = 0.6
+    spurious_p_test = 0.7
 
-    spurious_env, spurious_env_flip = generate_spurious_envs()
+    # spurious_env, spurious_env_flip = generate_spurious_envs()
+    spurious_env, spurious_colors = random_generator[MODE](digits_to_store, return_keys=True)
+    flip_map = generate_random_flip_map()
+    spurious_env_flip = flip_digit_color(flip_map, spurious_env)
+    random_color_keys = generate_uncorrelated_color_keys(n=5, forbidden_colors=spurious_colors)
     test_rnd_loader, test_spur_loader = split_random_spurious(test_set, spurious_p_test, batch_size)
 
     print("transforming test random set...")
-    test_images_random, test_labels_random = transform_images(test_rnd_loader, split=1, random=1)
+    test_images_random, test_labels_random = transform_images(test_rnd_loader, split=1, random=1, possible_color_keys=random_color_keys)
     
     print("transforming test spurious set...")
     test_images_spurious, test_labels_spurious = transform_images(test_spur_loader, split=1, random=0, spurious_env=spurious_env_flip)
@@ -88,7 +100,7 @@ if __name__ == '__main__':
         val_rnd_loader, val_spur_loader = split_random_spurious(valid_set, spurious_p, batch_size)
 
         print("transforming random train images...")
-        images_, labels_ = transform_images(train_rnd_loader, split=0, random=1)
+        images_, labels_ = transform_images(train_rnd_loader, split=0, random=1, possible_color_keys=random_color_keys)
         image_paths = save_images_with_path(images_, labels_, store_dir_p, split=0, random=1)
         train_random_metadata = get_metadata(image_paths, labels_, split=0, random=1)
         
@@ -98,7 +110,7 @@ if __name__ == '__main__':
         train_spurious_metadata = get_metadata(image_paths, labels_, split=0, random=0)
 
         print("transforming random val images...")
-        images_, labels_ = transform_images(val_rnd_loader, split=2, random=1)
+        images_, labels_ = transform_images(val_rnd_loader, split=2, random=1, possible_color_keys=random_color_keys)
         image_paths = save_images_with_path(images_, labels_, store_dir_p, split=2, random=1)
         val_random_metadata = get_metadata(image_paths, labels_, split=2, random=1)
 

@@ -32,7 +32,7 @@ opt:
   l2: 0.1
   dropout: 0.5
   comnivore_v:
-    all_negative_balance: [0.5,0.51,0.01]
+    all_negative_balance: [0.1,0.11,0.01]
     snorkel_ep: 1000
     snorkel_lr: 5.e-4
   comnivore_g:
@@ -45,7 +45,7 @@ pipeline:
   baseline: False
   indiv_training: False
   fused_causal: True
-  remove_features: True
+  remove_features: False
   sample_weighting: True
 
 utils:

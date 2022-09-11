@@ -28,12 +28,12 @@ model:
   alpha: 2
 
 opt:
-  epochs: 50
-  lr: 3.e-6
+  epochs: 100
+  lr: 2.e-6
   l2: 0.0
   dropout: 0.25
   comnivore_v:
-    all_negative_balance: [0.1,1,0.1]
+    all_negative_balance: [0.1,1.0,0.1]
     snorkel_ep: 500
     snorkel_lr: 1.e-3
   comnivore_g:
@@ -49,6 +49,6 @@ pipeline:
 
 utils:
   log_freq: 20
-  n_save_images: 20
+  n_save_images: 100
 
 
