@@ -5,3 +5,4 @@ from .WeightedCausalClassifier import WeightedCausalClassifier
 from .model_backbone import MLP, CLIPMLP
 from .train_tools import *
 from .Phi import Phi, Extractor_CLIP, Extractor_CNN, Extractor_VAE
+from .Spuriousness_Profiler import Spuriousness_Profiler

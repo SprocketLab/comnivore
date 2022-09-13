@@ -1,5 +1,5 @@
 import numpy as np
-from libs.model import WeightedCausalClassifier, CausalClassifier, MLP, CLIPMLP
+from libs.model import WeightedCausalClassifier, CausalClassifier, MLP, CLIPMLP, Spuriousness_Profiler
 import os
 import shutil
 import pandas as pd
@@ -135,7 +135,8 @@ def store_spurious_images(store_path, files_to_copy, scores=None):
         if scores is not None:
             score = round(scores[i], 3)
             filename = f"{str(score)}_{filename}"
-        shutil.copy(file, os.path.join(store_path, filename))
+        destination_path = os.path.join(store_path, filename)
+        shutil.copy(file, destination_path)
 
 def evaluate_trained_model(trained_model, traindata, valdata, metadata_val, testdata, metadata_test, generator, \
                             bs=32, evaluate_func=None,):
@@ -189,38 +190,35 @@ def train_and_evaluate_end_model_weighted(traindata, valdata, metadata_val, \
 
     
 def group_and_store_images_by_weigts(point_weights, 
-                                        csv_file, metadata_train, \
-                                        dataset_name,
-                                        n_store=100, store_images=True, \
-                                        store_path=None, return_eval_results=True, 
-                                        root_dir = None):
+                                    csv_file, metadata_train, \
+                                    dataset_name,
+                                    n_store=100, store_images=True, \
+                                    store_path=None, return_eval_results=True, 
+                                    root_dir = None):
     
     sorted_idx_lowest = np.argsort(np.asarray(point_weights))
     n_lowest = sorted_idx_lowest[:n_store]
     n_highest = sorted_idx_lowest[len(point_weights)-n_store:]
     
-    metadata_low = np.array(metadata_train[n_lowest])
-    metadata_high = np.array(metadata_train[n_highest])
-    # print('METADATA', metadata_low)
-
-    low_p_spur = metadata_low[metadata_low == 0].shape[0] / metadata_low.shape[0]
-    high_p_spur = metadata_high[metadata_high == 0].shape[0] / metadata_high.shape[0]
-    
-    log("% high files from spurious group: {:.3f}".format(high_p_spur))
-    log("% low files from spurious group: {:.3f}".format(low_p_spur))
+    spuriousness_profiler = Spuriousness_Profiler(dataset_name)
+    low_p_spur, high_p_spur = spuriousness_profiler.calculate_spuriousness_fix_n(metadata_train, point_weights, n_store)
+    # spuriousness_profiler.calculate_dynamic_spuriousness(metadata_train, point_weights)
     df = pd.read_csv(csv_file)
     
     if store_images:
         assert store_path is not None
         dataset_const_ = dataset_const[dataset_name]
-        train_file_paths = df[df['split']==0][dataset_const_['image_file_column_name']].tolist()
+        train_file_paths = df[df[dataset_const_['split_column']]==0][dataset_const_['image_file_column_name']].tolist()
         if root_dir is not None:
-            train_file_paths = [os.path.join(root_dir, f) for f in train_file_paths]
+            if 'image_subdir' in dataset_const_:
+                train_file_paths = [os.path.join(root_dir, dataset_const_['image_subdir'], f) for f in train_file_paths]
+            else:
+                train_file_paths = [os.path.join(root_dir, f) for f in train_file_paths]
         train_file_paths = np.asarray(train_file_paths)
         low_files = train_file_paths[n_lowest]
         high_files = train_file_paths[n_highest]
         store_spurious_images(os.path.join(store_path, "low"), low_files, np.asarray(point_weights)[n_lowest])
-        store_spurious_images( os.path.join(store_path, "high"), high_files, np.asarray(point_weights)[n_highest])
+        store_spurious_images(os.path.join(store_path, "high"), high_files, np.asarray(point_weights)[n_highest])
     
     if return_eval_results:
         return high_p_spur, low_p_spur, low_p_spur-high_p_spur

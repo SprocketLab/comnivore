@@ -50,7 +50,7 @@ def main(args):
     # create log folder
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if 'log_path' in args and args.log_path is not None:
-        log_path = os.path.join('log','SPURIOUS_NEW', dataset_name, args.log_path,timestamp)
+        log_path = os.path.join('log','SPURIOUS_NEW', dataset_name, args.log_path, timestamp)
     else:
         log_path = os.path.join('log','SPURIOUS_NEW', dataset_name, timestamp)
     

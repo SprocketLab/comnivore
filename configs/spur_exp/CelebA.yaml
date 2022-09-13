@@ -9,7 +9,7 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/celebA/CLIP/2_class_FA_LESS
     n_orig_features: 769
     n_pac_features: 4
-    tasks: ["crop_bottom_segment", "crop_segment"]
+    tasks: ["orig"]
     images_path: /hdd2/wilds_data/celebA_v1.0
     metadata_file_name: "list_eval_partition.csv"
 
@@ -42,5 +42,5 @@ pipeline:
   fused_causal: True
 
 utils:
-  log_freq: 5
-  n_save_images: 20
+  log_freq: 15
+  n_save_images: 100

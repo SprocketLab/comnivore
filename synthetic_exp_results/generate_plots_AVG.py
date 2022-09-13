@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import argparse
+from tqdm import tqdm
 
 def file_to_list(file_path):
     with open(file_path) as file:
@@ -14,13 +15,7 @@ def get_separation(lines):
             sep = line[17:20]
             return float(sep)
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--dir_num', type=str, help='dir num', required=True)
-    args = parser.parse_args()
-    dir_num = args.dir_num
-    print(f"DIR NUM {dir_num}")
+def get_indiv_dir_perf(dir_num):
     x = os.listdir(f'/hdd2/dyah/uncorrelated_coloredmnist_synthetic_{str(dir_num)}')
     x = np.asarray(x)
     x = np.sort(x)
@@ -45,6 +40,31 @@ if __name__ == '__main__':
         y_weight.append(y_weight_)
         y_no_weight.append(y_no_weight_)
         separation.append(separation_)
+    
+    return y_weight, y_no_weight, separation
+
+if __name__ == '__main__':
+    n_dirs = 13
+    dir_nums = np.arange(0,n_dirs)
+    y_weight_all = []
+    y_no_weight_all = []
+    separation_all = []
+
+    x = np.arange(0.1,0.7,0.1)
+    for dir_num in tqdm(dir_nums):
+        if dir_num == 9:
+            continue
+        y_weight, y_no_weight, separation = get_indiv_dir_perf(dir_num)
+        y_weight_all.append(y_weight)
+        y_no_weight_all.append(y_no_weight)
+        separation_all.append(separation)
+    y_weight_all = np.asarray(y_weight_all)
+    y_no_weight_all = np.asarray(y_no_weight_all)
+    separation_all = np.asarray(separation_all)
+    
+    y_weight = np.mean(y_weight_all, axis=0)
+    y_no_weight = np.mean(y_no_weight_all, axis=0)
+    separation = np.mean(separation_all, axis=0)
 
     plt.plot(x, y_no_weight, label="no weight")
     plt.plot(x, y_weight, label="with weight")
@@ -53,4 +73,4 @@ if __name__ == '__main__':
     plt.ylabel("%")
     plt.tight_layout()
     plt.legend()
-    plt.savefig(f"uncorrelated_low_CB_range/acc_sep_{str(dir_num)}.png")
+    plt.savefig(f"uncorrelated_low_CB_range/acc_sep_AVG.png")

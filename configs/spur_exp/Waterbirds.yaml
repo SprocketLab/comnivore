@@ -9,7 +9,7 @@ data:
     load_path: /hdd2/dyah/sicheng_test/causal-x-ws/e2e/artifacts/extracted_features/waterbirds/CLIP/2_class_FA_CLEAN
     n_orig_features: 769
     n_pac_features: 6
-    tasks: ["segment"]
+    tasks: ["orig"]
     images_path: /hdd2/wilds_data/waterbirds_v1.0
 
 extraction_pipeline:
@@ -32,7 +32,7 @@ opt:
   l2: 0.1
   dropout: 0.5
   comnivore_v:
-    all_negative_balance: [0.1,0.11,0.01]
+    all_negative_balance: [0.1,1.0,0.1]
     snorkel_ep: 1000
     snorkel_lr: 5.e-4
   comnivore_g:
@@ -50,7 +50,7 @@ pipeline:
 
 utils:
   log_freq: 25
-  n_save_images: 20
+  n_save_images: 50
 
 weighting_scheme:
   zero_one: False
