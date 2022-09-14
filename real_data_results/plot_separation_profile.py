@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 log_dir_root = '../log/SPURIOUS_NEW'
-dataset_name = 'waterbirds'
+dataset_name = 'celebA'
 dataset_log_dir = os.path.join(log_dir_root, dataset_name)
 log_subdirs = [os.path.join(dataset_log_dir, dir_) for dir_ in os.listdir(dataset_log_dir)]
 log_subdirs.sort(key=lambda x: os.path.getmtime(x))
@@ -46,7 +46,8 @@ def file_to_list(file_path):
 
 file_lines = file_to_list(log_file)
 active_cb, unweighted, weighted, separation, high_p, low_p = get_data_from_log(file_lines)
-print(high_p, low_p)
+# print(high_p, low_p)
+# active_cb = ["{:.f}".format(cb_) for cb_ in active_cb]
 # print(active_cb, unweighted, weighted, separation)
 plt.plot(active_cb, unweighted, label="unweighted (test acc)", marker='X')
 plt.plot(active_cb, weighted, label="weighted (test acc)", marker='X')
@@ -64,7 +65,7 @@ plt.ylabel("%")
 plt.tight_layout()
 plt.legend()
 plt.title(f"{dataset_name}")
-plt.savefig(f"{dataset_name}_ORIG.png")
+plt.savefig(f"{dataset_name}ORIG_MORE_2.png")
 
 """
 What to read:
