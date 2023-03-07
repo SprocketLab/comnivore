@@ -59,11 +59,9 @@ def main(args):
 
     lf_factory = LF()
     samples_dict = get_samples_dict(load_path,n_orig_features,n_pca_features,tasks)
-    
+    metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
     metadata_test = np.load(os.path.join(load_path, "metadata_test.npy"))
-
     metadata_val = np.load(os.path.join(load_path, "metadata_val.npy"))
-
     ##################################################################################
     # set up optimizer
     opt = cfg['opt']
@@ -188,8 +186,8 @@ def main(args):
             
         COmnivore = COmnivore_V(G_estimates, snorkel_lr, snorkel_ep)
         
-        best_diff = float("-inf")
-        best_cb = 0
+        # best_diff = float("-inf")
+        # best_cb = 0
         for cb in all_negative_balance:
             log(f"###### {cb} ######")
             g_hats, edge_probs = COmnivore.fuse_estimates(cb, n_pca_features, return_probs=True)
@@ -227,17 +225,16 @@ def main(args):
                 analyze_weights(points_weights)
                 
                 if csv_file is not None:
-                    metadata_train = np.load(os.path.join(load_path, "metadata_train.npy"))
-                    high_p_spur, low_p_spur, diff = group_and_store_images_by_weigts(points_weights, csv_file, \
+                    group_and_store_images_by_weigts(points_weights, csv_file, \
                                                                                     metadata_train, \
                                                                                     n_store=n_save_images, store_images=True, 
                                                                                     store_path=os.path.join('spurious_samples_exp',f'{dataset_name}'),
                                                                                     root_dir = os.path.join(images_path),\
                                                                                     dataset_name = dataset_name)
-                    log("% SPURIOUS SAMPLES SEPARATION: {:.3f}".format(diff))
-                    if diff > best_diff:
-                        best_diff = diff
-                        best_cb = cb
+                    # log("% SPURIOUS SAMPLES SEPARATION: {:.3f}".format(diff))
+                    # if diff > best_diff:
+                    #     best_diff = diff
+                    #     best_cb = cb
                 
                 log("="*100)
                 log("WITH SAMPLE WEIGHT")
@@ -258,14 +255,14 @@ def main(args):
                 train_causal, val_causal, test_causal, _, _ = get_data_from_feat_label_array(samples_dict, G_estimates=g_hats, scale=False)
                 log("="*100)
                 log("REMOVE CAUSAL ONLY")
-                if not test_baseline_nodes(pca_nodes, n_pca_features):
-                    acc_remove = train_and_evaluate_end_model_causal(train_causal, val_causal, metadata_val, \
-                                        test_causal, metadata_test,rng, \
-                                        epochs, lr, bs, l2, dropout=dropout, \
-                                        model=model, n_layers=n_layers, \
-                                        evaluate_func=evaluate_func, \
-                                        log_freq=log_freq, tune_by_metric=tune_by_metric)
-                    eval_accs_remove_feats[cb] = acc_remove
+                # if not test_baseline_nodes(pca_nodes, n_pca_features):
+                acc_remove = train_and_evaluate_end_model_causal(train_causal, val_causal, metadata_val, \
+                                    test_causal, metadata_test,rng, \
+                                    epochs, lr, bs, l2, dropout=dropout, \
+                                    model=model, n_layers=n_layers, \
+                                    evaluate_func=evaluate_func, \
+                                    log_freq=log_freq, tune_by_metric=tune_by_metric)
+                eval_accs_remove_feats[cb] = acc_remove
                 log("="*100)
                 log("REMOVE CAUSAL + WEIGHTED")
                 acc_combined = train_and_evaluate_end_model_weighted(train_causal, val_causal,\
@@ -297,8 +294,8 @@ def main(args):
             log(f"BEST CB REMOVE FEATS: {best_cb_}")
             best_model_combined, best_cb_ = get_best_model_acc(eval_accs_combined, tune_by=tune_by_metric, return_best_key=True)
             log(f"BEST CB COMBINED: {best_cb_}")
-        if csv_file is not None:
-            log(f"BEST SEPARATION: {best_diff} CB: {best_cb}")
+        # if csv_file is not None:
+            # log(f"BEST SEPARATION: {best_diff} CB: {best_cb}")
         
         return best_model_spur, best_model_base, best_model_remove, best_model_combined
 

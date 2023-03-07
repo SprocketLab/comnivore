@@ -9,6 +9,8 @@ import os
 import pickle
 from datetime import datetime
 
+from libs.datasets import SYNTHETIC_DATASETS
+
 import numpy as np
 
 def get_model_dict():
@@ -65,7 +67,7 @@ def main(args):
         z_hidden = extraction_config['z_hidden']
     
     environments = dataset_cfg['tasks']
-    if dataset_name == "Synthetic_ColoredMNIST":
+    if dataset_name in SYNTHETIC_DATASETS:
         assert 'images_path' in args or 'images_path' in dataset_cfg
         if 'images_path' in args and not isinstance(args.images_path,type(None)):
             images_path = args.images_path
@@ -83,10 +85,11 @@ def main(args):
     test_metadata = candidate_set.get_test_metadata()
     val_metadata = candidate_set.get_val_metadata()
     
+    
     store_features(store_dir, train_metadata, "train", "metadata")
     store_features(store_dir, test_metadata, "test", "metadata")
     store_features(store_dir, val_metadata, "val", "metadata")
-    
+
     model = extraction_config['extractor_model']
     extractor_model = get_model_dict()[model](z_hidden)
     

@@ -193,7 +193,7 @@ def group_and_store_images_by_weigts(point_weights,
                                     csv_file, metadata_train, \
                                     dataset_name,
                                     n_store=100, store_images=True, \
-                                    store_path=None, return_eval_results=True, 
+                                    store_path=None, return_eval_results=False, 
                                     root_dir = None):
     
     sorted_idx_lowest = np.argsort(np.asarray(point_weights))
@@ -201,7 +201,7 @@ def group_and_store_images_by_weigts(point_weights,
     n_highest = sorted_idx_lowest[len(point_weights)-n_store:]
     
     spuriousness_profiler = Spuriousness_Profiler(dataset_name)
-    low_p_spur, high_p_spur = spuriousness_profiler.calculate_spuriousness_fix_n(metadata_train, point_weights, n_store)
+    tpr, fpr, tnr, fnr = spuriousness_profiler.calculate_spuriousness_fix_n(metadata_train, point_weights, n_store)
     # spuriousness_profiler.calculate_dynamic_spuriousness(metadata_train, point_weights)
     df = pd.read_csv(csv_file)
     
@@ -221,7 +221,7 @@ def group_and_store_images_by_weigts(point_weights,
         store_spurious_images(os.path.join(store_path, "high"), high_files, np.asarray(point_weights)[n_highest])
     
     if return_eval_results:
-        return high_p_spur, low_p_spur, low_p_spur-high_p_spur
+        return tpr, fpr, tnr, fnr
         
     
 def analyze_weights(point_weights):

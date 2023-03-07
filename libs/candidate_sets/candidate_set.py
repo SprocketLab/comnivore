@@ -4,6 +4,7 @@ from .multiclass_domainbed_candidate import MultiClassDomainBed
 from .coloredmnist_candidate import ColoredMNIST_Candidate_Set
 from .iwildcam_candidate import IWildCam_Candidate_Set
 from .synthetic_coloredmnist_candidate import Synthetic_ColoredMNIST_Candidate_Set
+from .synthetic_cmnist_multi_spurious import Multi_Spurious_CMNIST_Candidate_Set
 from libs.model import *
 from tqdm import tqdm
 
@@ -32,6 +33,8 @@ class Candidate_Set:
             return ColoredMNIST_Candidate_Set(self.batch_size, **kwargs)
         elif dataset_name == "Synthetic_ColoredMNIST":
             return Synthetic_ColoredMNIST_Candidate_Set(self.batch_size, **kwargs)
+        elif dataset_name == "Synthetic_ColoredMNIST_Multi":
+            return Multi_Spurious_CMNIST_Candidate_Set(self.batch_size, **kwargs)
             
     
     def get_all_train_loader_by_tasks(self, tasks):

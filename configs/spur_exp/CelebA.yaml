@@ -27,7 +27,7 @@ opt:
   l2: 0.1
   dropout: 0.0
   comnivore_v:
-    all_negative_balance: [0.1,1.0,0.1]
+    all_negative_balance: [0.01,1.0,0.01]
     snorkel_ep: 1000
     snorkel_lr: 1.e-4
   comnivore_g:

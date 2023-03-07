@@ -8,12 +8,14 @@ import torchvision.transforms as T
 import pandas as pd
 
 transform = {
-    "background": transform_digit_color,
-    "full": transform_image
+    "background": transform_background_color,
+    "full": transform_image,
+    "digit": transform_digit_color,
 }
 random_generator = {
     "background": generate_random_digit_color,
-    "full": generate_random_environment
+    "full": generate_random_environment,
+    "digit": generate_random_digit_color
 }
 
 def transform_image_with_env(env, loader, digits_to_store=[0,1], mode="background"):
@@ -24,12 +26,32 @@ def transform_image_with_env(env, loader, digits_to_store=[0,1], mode="backgroun
             mask = np.logical_or(labels == digits_to_store[0], labels == digits_to_store[1])
             imgs = imgs[mask,:,:,:]
             labels = labels[mask]
-        transformed_imgs = transform[mode](imgs, labels,env)
+        if mode != 'full':
+            transformed_imgs = transform[mode](imgs, labels, env)
+        else:
+            assert type(env) == list
+            env_0 = env[0]
+            env_1 = env[1]
+            transformed_imgs = transform["background"](imgs, labels, env_0)
+            transformed_imgs = transform["digit"](transformed_imgs, labels, env_1)
         images=torch.vstack((images,transformed_imgs))
         y_true.extend(labels.detach().cpu().numpy())
     images = images[1:,:,:,:]
     y_true = torch.Tensor(y_true)
     return images, y_true
+
+def transform_by_mode(mode, imgs, possible_color_keys):
+    if mode == "background":
+        transformed_imgs = color_background_random(imgs, possible_color_keys)
+    elif mode == "digit":
+        transformed_imgs = color_digit_random(imgs, possible_color_keys)
+    elif mode == "full":
+        digit_colors = np.random.choice(np.array(possible_color_keys), 2).flatten()
+        # background_colors_idx = np.argwhere(possible_color_keys not in digit_colors)
+        background_colors = [color_ for color_ in possible_color_keys if color_ not in digit_colors]
+        transformed_imgs = color_background_random(imgs, background_colors)
+        transformed_imgs = color_digit_random(transformed_imgs, digit_colors)
+    return transformed_imgs
 
 def transform_image_random(loader, possible_color_keys, digits_to_store=[0,1], mode="background"):
     images = torch.zeros((1,3,28,28))
@@ -39,9 +61,7 @@ def transform_image_random(loader, possible_color_keys, digits_to_store=[0,1], m
             mask = np.logical_or(labels == digits_to_store[0], labels == digits_to_store[1])
             imgs = imgs[mask,:,:,:]
             labels = labels[mask]
-        # print('before', imgs)
-        transformed_imgs = color_digit_random(imgs, possible_color_keys)
-        # print('after', transformed_imgs)
+        transformed_imgs = transform_by_mode(mode, imgs, possible_color_keys)
         images=torch.vstack((images,transformed_imgs))
         y_true.extend(labels.detach().cpu().numpy())
     images = images[1:,:,:,:]
@@ -79,13 +99,15 @@ def show_random_images(images):
     plt.setp(plt.gcf().get_axes(), xticks=[], yticks=[]);
     plt.show()
 
-def get_metadata(image_paths, labels, split, random):
+def get_metadata(image_paths, labels, split, random, spurious_feats=None):
     metadata_ = {
         'image_path': image_paths, 
         'label': labels
     }
     metadata_['split'] = [split for i in range(len(metadata_['label']))]
     metadata_['random'] = [random for i in range(len(metadata_['label']))]
+    if spurious_feats is not None:
+        metadata_['spurious_feats_n'] = [spurious_feats for i in range(len(metadata_['label']))]
     return pd.DataFrame(metadata_)
 
 def save_images(images, labels, split, save_dir):

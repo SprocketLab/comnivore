@@ -92,7 +92,7 @@ class CausalClassifier:
         best_val_perf = 0
         best_epoch = 0
         for epoch in tqdm(range(epochs)):
-            for batch_idx, chunk in enumerate(trainloader):
+            for batch_idx, (data, target) in enumerate(trainloader):
                 if cuda:
                     data = data.cuda()
                     target = target.cuda()

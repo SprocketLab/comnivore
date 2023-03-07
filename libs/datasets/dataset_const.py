@@ -13,5 +13,10 @@ dataset_const = {
         'image_file_column_name': 'image_path',
         'spurious_feature': 'random',
         'split_column': 'split'
+    },
+    'Synthetic_ColoredMNIST_Multi': {
+        'image_file_column_name': 'image_path',
+        'spurious_feature': 'random',
+        'split_column': 'split'
     }
 }

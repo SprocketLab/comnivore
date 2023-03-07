@@ -1,8 +1,5 @@
 import os
 import shutil
-import tempfile
-import pydot
-import networkx as nx
 from .graph_modules import show_graph
 
 

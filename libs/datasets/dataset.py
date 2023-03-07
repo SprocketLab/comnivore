@@ -15,7 +15,8 @@ DOMAINBED_DATASETS = [
 ]
 
 SYNTHETIC_DATASETS = [
-    "Synthetic_ColoredMNIST"
+    "Synthetic_ColoredMNIST",
+    "Synthetic_ColoredMNIST_Multi",
 ]
 
 DATASETS = WILDS_DATASETS + DOMAINBED_DATASETS + SYNTHETIC_DATASETS

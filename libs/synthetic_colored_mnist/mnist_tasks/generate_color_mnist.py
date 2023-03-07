@@ -53,7 +53,6 @@ def generate_random_digit_color(digits_to_store=[], return_keys=False, forbidden
     # create random digit color
     mapping = {}
     picked_color_keys = []
-    print("FORBIDDEN SPURIOUS", forbidden_colors)
     if len(forbidden_colors) > 0:
         picked_color_keys.extend(forbidden_colors)
     for label in labels:
@@ -69,7 +68,7 @@ def generate_random_digit_color(digits_to_store=[], return_keys=False, forbidden
     return mapping, picked_color_keys
 
 @numba.jit
-def transform_digit_color(imgs, labels, env):
+def transform_background_color(imgs, labels, env):
     for label in env:
         label_mapping = env[label]
         images_with_label = imgs[labels==label,:,:,:].detach().cpu().numpy()
@@ -88,8 +87,27 @@ def transform_digit_color(imgs, labels, env):
         imgs[labels==label,:,:,:] = torch.Tensor(images_with_label)
     return imgs
 
+@numba.jit
+def transform_digit_color(imgs, labels, env):
+    for label in env:
+        label_mapping = env[label]
+        images_with_label = imgs[labels==label,:,:,:].detach().cpu().numpy()
+        # images_with_label[images_with_label<0] = -1.
+        # images_with_label[images_with_label>0] = 0.
+        digit_pixels = np.argwhere((images_with_label==0))
+        img_indexes = np.unique(digit_pixels[:,0])
+        for i_idx in img_indexes:
+            img = images_with_label[i_idx, :, :, :]
+            zero_pixels = np.delete(digit_pixels[np.argwhere(digit_pixels[:,0]==i_idx)].squeeze(),0,axis=1)
+            for pixel in zero_pixels:
+                zero_channels = np.where((zero_pixels[:,1] == pixel[1]) & (zero_pixels[:,2] == pixel[2]))[0]
+                if zero_channels.shape[0] == 3:
+                    for channel in range(zero_channels.shape[0]):
+                        img[channel, pixel[1], pixel[2]] = label_mapping[channel]
+        imgs[labels==label,:,:,:] = torch.Tensor(images_with_label)
+    return imgs
+
 def generate_uncorrelated_color_keys(n=5, forbidden_colors = []):
-    print("FORBIDDEN RANDOM", forbidden_colors)
     color_keys = []
     picked_keys = []
     if len(forbidden_colors) > 0:
@@ -100,7 +118,7 @@ def generate_uncorrelated_color_keys(n=5, forbidden_colors = []):
         picked_keys.append(chosen_color)
     return color_keys
 
-def color_digit_random(imgs, possible_color_keys):
+def color_background_random(imgs, possible_color_keys):
     imgs = imgs.detach().cpu().numpy()
     imgs[imgs<0] = -1.
     imgs[imgs>0] = 0.
@@ -110,9 +128,28 @@ def color_digit_random(imgs, possible_color_keys):
         random_color_key = np.random.choice(possible_color_keys)
         color_rgb = colors[random_color_key]
         color = rgb_to_list(color_rgb)
-        # random_color = list(np.random.choice(range(256), size=3))
         random_color = inter_from_256(color)
         zero_pixels = np.delete(background_pixels[np.argwhere(background_pixels[:,0]==i_idx)].squeeze(),0,axis=1)
+        for pixel in zero_pixels:
+            zero_channels = np.where((zero_pixels[:,1] == pixel[1]) & (zero_pixels[:,2] == pixel[2]))[0]
+            if zero_channels.shape[0] == 3:
+                for channel in range(zero_channels.shape[0]):
+                    imgs[i_idx, :, :, :][channel, pixel[1], pixel[2]] = random_color[channel]
+    imgs = torch.Tensor(imgs)
+    return imgs
+
+def color_digit_random(imgs, possible_color_keys):
+    imgs = imgs.detach().cpu().numpy()
+    # imgs[imgs<0] = -1.
+    # imgs[imgs>0] = 0.
+    digit_pixels = np.argwhere((imgs==0))
+    img_indexes = np.unique(digit_pixels[:,0])
+    for i_idx in img_indexes:
+        random_color_key = np.random.choice(possible_color_keys)
+        color_rgb = colors[random_color_key]
+        color = rgb_to_list(color_rgb)
+        random_color = inter_from_256(color)
+        zero_pixels = np.delete(digit_pixels[np.argwhere(digit_pixels[:,0]==i_idx)].squeeze(),0,axis=1)
         for pixel in zero_pixels:
             zero_channels = np.where((zero_pixels[:,1] == pixel[1]) & (zero_pixels[:,2] == pixel[2]))[0]
             if zero_channels.shape[0] == 3:
@@ -156,8 +193,8 @@ def generate_random_environment(digits_to_store=[]):
         for channel, p in enumerate(p_choose_channel):
             if p:
                 cdict_random_idx = np.random.choice(len(cdict[channel]))
-                map = cdict[channel][cdict_random_idx]
-                mapping[label][channel] = map[channel]
+                map_ = cdict[channel][cdict_random_idx]
+                mapping[label][channel] = map_[channel]
     return mapping
 
 @numba.jit        

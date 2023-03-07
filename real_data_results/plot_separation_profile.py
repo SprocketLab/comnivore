@@ -65,7 +65,7 @@ plt.ylabel("%")
 plt.tight_layout()
 plt.legend()
 plt.title(f"{dataset_name}")
-plt.savefig(f"{dataset_name}ORIG_MORE_2.png")
+plt.savefig(f"{dataset_name}_ORIG_MORE_2.png")
 
 """
 What to read:
