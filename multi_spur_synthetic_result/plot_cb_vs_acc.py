@@ -25,13 +25,13 @@ def get_info_from_log_lines(log_lines):
     '''
     active_cbs = np.arange(0.1,1.0,0.1)
     baseline_acc =np.empty((1, 9))
-    baseline_acc[:] = np.NaN
+    baseline_acc[:] = np.nan
     weighted_acc = np.empty((1, 9))
-    weighted_acc[:] = np.NaN
+    weighted_acc[:] = np.nan
     remove_feats_acc = np.empty((1, 9))
-    remove_feats_acc[:] = np.NaN
+    remove_feats_acc[:] = np.nan
     combined_acc = np.empty((1, 9))
-    combined_acc[:] = np.NaN
+    combined_acc[:] = np.nan
     for i, line in enumerate(log_lines):
         if "######" in line and "N MASKED FEATURES" in log_lines[i+1]:
             cb = float(line[7:10])
